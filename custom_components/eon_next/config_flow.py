@@ -21,6 +21,7 @@ from .const import (
     CONF_BACKFILL_REBUILD_STATISTICS,
     CONF_BACKFILL_REQUESTS_PER_RUN,
     CONF_BACKFILL_RUN_INTERVAL_MINUTES,
+    CONF_API_KEY,
     CONF_EMAIL,
     CONF_PASSWORD,
     CONF_REFRESH_TOKEN,
@@ -37,7 +38,7 @@ from .const import (
     DEFAULT_SHOW_PANEL,
     DOMAIN,
 )
-from .eonnext import EonNext, EonNextApiError
+from .eonnext import EonNext, EonNextApiError, redact_secrets
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -53,23 +54,21 @@ class EonNextConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Return options flow for this handler."""
         return EonNextOptionsFlow()
 
-    async def _validate_credentials(self, email: str, password: str) -> str | None:
-        """Validate credentials against E.ON Next.
+    async def _validate_credentials(self, api_key: str) -> str | None:
+        """Validate an API key against E.ON Next.
 
-        Returns the refresh token on success, or None on failure.
+        Returns the refresh token on success, or None if the key is rejected.
         """
         api = EonNext()
         try:
-            success = await api.login_with_username_and_password(
-                email,
-                password,
-                initialise=False,
-            )
-            if success:
+            if await api.login_with_api_key(api_key, initialise=False):
                 return api.auth["refresh"]["token"]
             return None
         except EonNextApiError as err:
-            _LOGGER.debug("API/connection error during credential validation: %s", err)
+            _LOGGER.debug(
+                "API/connection error during credential validation: %s",
+                redact_secrets(err),
+            )
             raise
         except Exception:  # pylint: disable=broad-except
             _LOGGER.exception("Unexpected error during authentication")
@@ -83,35 +82,38 @@ class EonNextConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             email = user_input[CONF_EMAIL].strip().lower()
-            password = user_input[CONF_PASSWORD]
+            api_key = (user_input.get(CONF_API_KEY) or "").strip()
 
             await self.async_set_unique_id(email)
             self._abort_if_unique_id_configured()
 
-            try:
-                refresh_token = await self._validate_credentials(email, password)
-            except EonNextApiError:
-                errors["base"] = "cannot_connect"
-            except Exception:  # pylint: disable=broad-except
-                errors["base"] = "unknown"
+            if not api_key:
+                errors["base"] = "missing_credentials"
             else:
-                if refresh_token is not None:
-                    return self.async_create_entry(
-                        title="Eon Next",
-                        data={
-                            CONF_EMAIL: email,
-                            CONF_PASSWORD: password,
-                            CONF_REFRESH_TOKEN: refresh_token,
-                        },
-                    )
-                errors["base"] = "invalid_auth"
+                try:
+                    refresh_token = await self._validate_credentials(api_key)
+                except EonNextApiError:
+                    errors["base"] = "cannot_connect"
+                except Exception:  # pylint: disable=broad-except
+                    errors["base"] = "unknown"
+                else:
+                    if refresh_token is not None:
+                        return self.async_create_entry(
+                            title="Eon Next",
+                            data={
+                                CONF_EMAIL: email,
+                                CONF_API_KEY: api_key,
+                                CONF_REFRESH_TOKEN: refresh_token,
+                            },
+                        )
+                    errors["base"] = "invalid_auth"
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_EMAIL): cv.string,
-                    vol.Required(CONF_PASSWORD): cv.string,
+                    vol.Required(CONF_API_KEY): cv.string,
                 }
             ),
             errors=errors,
@@ -132,7 +134,7 @@ class EonNextConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         if user_input is not None:
             email = user_input[CONF_EMAIL].strip().lower()
-            password = user_input[CONF_PASSWORD]
+            api_key = (user_input.get(CONF_API_KEY) or "").strip()
 
             # Reauth must stay on the same account: if the user submits a
             # different email, abort instead of silently rebinding the entry to
@@ -142,31 +144,38 @@ class EonNextConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(email)
             self._abort_if_unique_id_mismatch(reason="reauth_account_mismatch")
 
-            try:
-                refresh_token = await self._validate_credentials(email, password)
-            except EonNextApiError:
-                errors["base"] = "cannot_connect"
-            except Exception:  # pylint: disable=broad-except
-                errors["base"] = "unknown"
+            if not api_key:
+                errors["base"] = "missing_credentials"
             else:
-                if refresh_token is not None:
-                    return self.async_update_reload_and_abort(
-                        reauth_entry,
-                        data_updates={
-                            CONF_EMAIL: email,
-                            CONF_PASSWORD: password,
-                            CONF_REFRESH_TOKEN: refresh_token,
-                        },
-                        reason="reauth_successful",
-                    )
-                errors["base"] = "invalid_auth"
+                try:
+                    refresh_token = await self._validate_credentials(api_key)
+                except EonNextApiError:
+                    errors["base"] = "cannot_connect"
+                except Exception:  # pylint: disable=broad-except
+                    errors["base"] = "unknown"
+                else:
+                    if refresh_token is not None:
+                        return self.async_update_reload_and_abort(
+                            reauth_entry,
+                            data_updates={
+                                CONF_EMAIL: email,
+                                CONF_API_KEY: api_key,
+                                CONF_REFRESH_TOKEN: refresh_token,
+                                # Scrub any password stored by older versions;
+                                # E.ON no longer accepts it and it should not
+                                # linger in the config entry.
+                                CONF_PASSWORD: "",
+                            },
+                            reason="reauth_successful",
+                        )
+                    errors["base"] = "invalid_auth"
 
         return self.async_show_form(
             step_id="reauth_confirm",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_EMAIL, default=existing_email): cv.string,
-                    vol.Required(CONF_PASSWORD): cv.string,
+                    vol.Required(CONF_API_KEY): cv.string,
                 }
             ),
             errors=errors,

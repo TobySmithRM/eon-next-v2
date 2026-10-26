@@ -104,7 +104,7 @@ When SmartFlex devices are available: smart‑charging schedule status, next cha
 
 ### Reliability
 
-- Home Assistant re‑auth support for password changes.
+- Home Assistant re‑auth support when an API key is rotated or revoked.
 - Transient connectivity failures during login defer setup instead of invalidating stored credentials.
 - Auth/login GraphQL requests retry once over IPv4 after connector‑level network‑unreachable failures.
 
@@ -133,6 +133,8 @@ resources:
 
 - Home Assistant `2026.3.0` or newer (which requires Python 3.14).
 - An active E.ON Next account.
+- An E.ON Next **API key** (`sk_live_…`). E.ON no longer accepts email/password
+  logins, so a key is required. See [Creating an E.ON Next API key](API_KEY.md).
 
 ## Install with HACS (recommended)
 
@@ -154,7 +156,8 @@ Or add it manually:
 4. Find **Eon Next Integration** in HACS and install it.
 5. Restart Home Assistant.
 6. Go to **Settings → Devices & Services → Add Integration**.
-7. Search for **Eon Next** and complete login.
+7. Search for **Eon Next** and enter your account email and API key (see
+   [Creating an E.ON Next API key](API_KEY.md)).
 
 ## Manual installation
 
@@ -164,7 +167,7 @@ Or add it manually:
 
 ## Reauthentication
 
-If credentials expire or your password changes, Home Assistant prompts for re‑authentication. Open the integration card and complete the re‑auth flow to restore updates.
+If your API key is rotated or revoked, Home Assistant prompts for re‑authentication. Open the integration card and complete the re‑auth flow with a new API key to restore updates.
 
 ## Historical backfill (configurable)
 

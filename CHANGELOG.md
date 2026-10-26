@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.0.0](https://github.com/TobySmithRM/eon-next-v2/compare/v1.10.0...v2.0.0) (2026-10-26)
+
+
+### ⚠ BREAKING CHANGES
+
+* **auth:** Email/password login has been removed. E.ON's Kraken API no longer
+  accepts password authentication, so the integration now requires a per-account
+  API key (`sk_live_…`). Existing entries will prompt for re-authentication;
+  enter an API key to restore updates. See [API_KEY.md](API_KEY.md) for how to
+  generate one. Any password previously stored in the config entry is scrubbed
+  on re-auth.
+
+
+### Features
+
+* **auth:** add API key login and require it for new and re-authenticated entries
+* **auth:** redact credentials, tokens, and emails from all log output
+
+
+### Bug Fixes
+
+* **coordinator:** add an opt-in (debug-only) half-hourly consumption probe to diagnose missing same-day data
+* **api:** allow consumption requests without a `group_by` grouping
+
 ## [1.10.0](https://github.com/monsagri/eon-next-v2/compare/v1.9.3...v1.10.0) (2026-07-11)
 
 

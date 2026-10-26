@@ -16,8 +16,8 @@ from homeassistant.helpers import entity_registry as er
 from .backfill import EonNextBackfillManager
 from .const import (
     CARDS_URL,
+    CONF_API_KEY,
     CONF_EMAIL,
-    CONF_PASSWORD,
     CONF_REFRESH_TOKEN,
     CONF_SHOW_CARD,
     CONF_SHOW_PANEL,
@@ -234,8 +234,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: EonNextConfigEntry) -> b
         )
 
     api.set_token_update_callback(_persist_refresh_token)
-    api.username = entry.data[CONF_EMAIL]
-    api.password = entry.data[CONF_PASSWORD]
+    api.api_key = entry.data.get(CONF_API_KEY) or None
 
     # All login, account/meter loading, and manager initialisation is wrapped
     # so that a failure is mapped to the correct HA outcome (re-auth vs retry)
@@ -251,14 +250,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: EonNextConfigEntry) -> b
                 _LOGGER.debug("Authenticated using stored refresh token")
             else:
                 _LOGGER.debug(
-                    "Stored refresh token expired, falling back to credentials"
+                    "Stored refresh token expired, falling back to API key"
                 )
 
-        # Fall back to username/password if refresh token was unavailable.
+        # Fall back to the API key if the refresh token was unavailable.  E.ON
+        # no longer accepts passwords, so an entry without a key goes straight
+        # to re-auth rather than sending credentials that cannot work.
         if not authenticated:
-            authenticated = await api.login_with_username_and_password(
-                entry.data[CONF_EMAIL], entry.data[CONF_PASSWORD]
-            )
+            if api.api_key:
+                authenticated = await api.login_with_api_key(api.api_key)
             if not authenticated:
                 raise ConfigEntryAuthFailed("Failed to authenticate with Eon Next")
 

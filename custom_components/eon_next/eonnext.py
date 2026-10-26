@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import datetime
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
@@ -14,6 +15,45 @@ import aiohttp
 from .const import API_BASE_URL
 
 _LOGGER = logging.getLogger(__name__)
+
+# E.ON's GraphQL validation errors echo the submitted variables back verbatim
+# (including passwords and API keys), and REST error bodies can carry tokens.
+# Everything that reaches a log line goes through ``redact_secrets`` first.
+_REDACT_KEY_VALUE_RE = re.compile(
+    r"""(?P<key>['"]?(?:password|api_?key|refresh_?token|token|secret|identifier|email|authorization)['"]?\s*[:=]\s*)"""
+    r"""(?P<val>'[^']*'|"[^"]*"|[^\s,;}\]]+)""",
+    re.IGNORECASE,
+)
+_REDACT_PATTERNS = (
+    (re.compile(r"sk_(?:live|test)_[A-Za-z0-9_\-]+"), "sk_***"),
+    (re.compile(r"eyJ[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]+\.[A-Za-z0-9_\-]*"), "***jwt***"),
+    (re.compile(r"[\w.+\-]+@[\w\-]+\.[\w.\-]+"), "***@***"),
+)
+
+
+def redact_secrets(value: Any) -> str:
+    """Return ``value`` as text with credentials, tokens and emails masked."""
+    text = value if isinstance(value, str) else str(value)
+
+    def _mask(match: re.Match[str]) -> str:
+        val = match.group("val")
+        quote = val[0] if val[:1] in ("'", '"') else ""
+        return f"{match.group('key')}{quote}***{quote}"
+
+    text = _REDACT_KEY_VALUE_RE.sub(_mask, text)
+    for pattern, replacement in _REDACT_PATTERNS:
+        text = pattern.sub(replacement, text)
+    return text
+
+
+def _redacted_error_messages(errors: Any) -> Any:
+    """Redacted GraphQL error messages, or a placeholder when absent."""
+    if not isinstance(errors, list):
+        return "Unknown error"
+    messages = [
+        redact_secrets(e.get("message", "error")) for e in errors if isinstance(e, dict)
+    ]
+    return messages or "Unknown error"
 
 METER_TYPE_GAS = "gas"
 METER_TYPE_ELECTRIC = "electricity"
@@ -151,6 +191,10 @@ class EonNext:
     def __init__(self):
         self.username = ""
         self.password = ""
+        # Long-lived per-account API key (``sk_live_...``). When set it is used
+        # instead of the username/password to obtain tokens, because E.ON is
+        # moving away from credential logins.
+        self.api_key: str | None = None
         self._session: aiohttp.ClientSession | None = None
         self._auth_lock = asyncio.Lock()
         self._on_token_update: Callable[[str], None] | None = None
@@ -255,17 +299,23 @@ class EonNext:
             return False
         return True
 
+    async def __login_with_stored_credentials(self) -> bool:
+        """Log in with the stored API key (the only supported credential)."""
+        if self.api_key:
+            return await self.login_with_api_key(initialise=False)
+        _LOGGER.warning(
+            "No API key configured; E.ON no longer accepts password logins. "
+            "Re-authenticate the integration with an API key"
+        )
+        return False
+
     async def __auth_token(self) -> str:
         async with self._auth_lock:
             if not self.__auth_token_is_valid():
                 if self.__refresh_token_is_valid():
                     await self.__login_with_refresh_token()
                 else:
-                    await self.login_with_username_and_password(
-                        self.username,
-                        self.password,
-                        initialise=False,
-                    )
+                    await self.__login_with_stored_credentials()
 
             if not self.__auth_token_is_valid():
                 raise EonNextAuthError("Unable to authenticate")
@@ -288,11 +338,7 @@ class EonNext:
             if self.__refresh_token_is_valid():
                 await self.__login_with_refresh_token()
             else:
-                await self.login_with_username_and_password(
-                    self.username,
-                    self.password,
-                    initialise=False,
-                )
+                await self.__login_with_stored_credentials()
             return self.__auth_token_is_valid()
 
     async def _get_session(self) -> aiohttp.ClientSession:
@@ -375,13 +421,19 @@ class EonNext:
                         _LOGGER.warning(
                             "GraphQL errors in %s response: %s",
                             operation,
-                            [e.get("message", str(e)) for e in errors if isinstance(e, dict)],
+                            [
+                                redact_secrets(e.get("message", str(e)))
+                                for e in errors
+                                if isinstance(e, dict)
+                            ],
                         )
 
                     return result
 
             except aiohttp.ClientError as err:
-                _LOGGER.error("GraphQL request failed for %s: %s", operation, err)
+                _LOGGER.error(
+                    "GraphQL request failed for %s: %s", operation, redact_secrets(err)
+                )
                 raise EonNextApiError(f"API request failed: {err}") from err
 
     async def login_with_username_and_password(
@@ -390,6 +442,12 @@ class EonNext:
         password: str | None = None,
         initialise: bool = True,
     ) -> bool:
+        """Legacy password login.
+
+        E.ON removed the email/password fields from its token mutation, so this
+        is rejected by the live API.  It is kept only for API compatibility;
+        the integration itself authenticates with an API key.
+        """
         if username is not None:
             self.username = username
         if password is not None:
@@ -420,14 +478,42 @@ class EonNext:
                 await self.__init_accounts()
             return True
 
-        errors = result.get("errors")
-        if isinstance(errors, list):
-            summary: Any = [
-                e.get("message", "error") for e in errors if isinstance(e, dict)
-            ] or "Unknown error"
-        else:
-            summary = "Unknown error"
+        summary = _redacted_error_messages(result.get("errors"))
         _LOGGER.error("Authentication failed: %s", summary)
+        self.__reset_authentication()
+        return False
+
+    async def login_with_api_key(
+        self,
+        api_key: str | None = None,
+        initialise: bool = True,
+    ) -> bool:
+        """Obtain a Kraken JWT from a per-account API key (``sk_live_...``)."""
+        if api_key is not None:
+            self.api_key = api_key
+
+        try:
+            result = await self._graphql_post(
+                "apiKeyAuthentication",
+                "mutation apiKeyAuthentication($input: ObtainJSONWebTokenInput!) {obtainKrakenToken(input: $input) {    payload    refreshExpiresIn    refreshToken    token    __typename}}",
+                {"input": {"APIKey": self.api_key}},
+                False,
+            )
+        except EonNextAuthError:
+            self.__reset_authentication()
+            return False
+        except EonNextApiError:
+            # API/transient error - don't destroy auth state.
+            raise
+
+        if self._json_contains_key_chain(result, ["data", "obtainKrakenToken", "token"]):
+            self.__store_authentication(result["data"]["obtainKrakenToken"])
+            if initialise:
+                await self.__init_accounts()
+            return True
+
+        summary = _redacted_error_messages(result.get("errors"))
+        _LOGGER.error("API key authentication failed: %s", summary)
         self.__reset_authentication()
         return False
 
@@ -525,7 +611,7 @@ class EonNext:
         meter_type: str,
         supply_point_id: str,
         serial: str,
-        group_by: str = "day",
+        group_by: str | None = "day",
         page_size: int = 10,
         period_from: str | None = None,
         period_to: str | None = None,
@@ -541,7 +627,9 @@ class EonNext:
         else:
             return None
 
-        params: dict[str, str] = {"group_by": group_by, "page_size": str(page_size)}
+        params: dict[str, str] = {"page_size": str(page_size)}
+        if group_by:
+            params["group_by"] = group_by
         if period_from:
             params["period_from"] = period_from
         if period_to:
@@ -574,8 +662,14 @@ class EonNext:
                     # Non-200 is a transport/server error, not "no data".  Raise
                     # so callers (backfill, coordinator) can retry the same
                     # period instead of silently advancing past a permanent hole.
+                    detail = ""
+                    try:
+                        detail = redact_secrets((await response.text())[:300]).strip()
+                    except Exception:  # pylint: disable=broad-except
+                        detail = ""
+                    suffix = f": {detail}" if detail else ""
                     raise EonNextApiError(
-                        f"REST consumption endpoint returned status {response.status}"
+                        f"REST consumption endpoint returned status {response.status}{suffix}"
                     )
             except aiohttp.ClientError as err:
                 _LOGGER.debug("REST consumption request failed for %s: %s", serial, err)

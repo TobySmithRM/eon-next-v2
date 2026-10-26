@@ -7,23 +7,24 @@
         "error": {
             "cannot_connect": "Unable to connect to E.ON Next API",
             "invalid_auth": "Authentication failed",
-            "unknown": "An unexpected error occurred"
+            "unknown": "An unexpected error occurred",
+            "missing_credentials": "Enter your API key"
         },
         "step": {
             "reauth_confirm": {
                 "data": {
                     "email": "Email address",
-                    "password": "Password"
+                    "api_key": "API key"
                 },
-                "description": "Your login is no longer valid. Re-enter your credentials to reconnect.",
+                "description": "Your login is no longer valid. Enter your E.ON API key to reconnect (see the README for how to create one).",
                 "title": "Reauthenticate Eon Next"
             },
             "user": {
                 "data": {
                     "email": "Email address",
-                    "password": "Password"
+                    "api_key": "API key"
                 },
-                "description": "Login to your Eon Next account.",
+                "description": "E.ON no longer accepts password logins, so the integration signs in with an API key. See the README for how to create one.",
                 "title": "Login"
             }
         }
