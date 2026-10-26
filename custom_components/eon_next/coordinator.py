@@ -16,6 +16,7 @@ from .eonnext import (
     EonNextAuthError,
     GasMeter,
     METER_TYPE_GAS,
+    redact_secrets,
 )
 from .statistics import async_import_consumption_statistics
 from .tariff_helpers import cost_consumption_entries, get_current_rate
@@ -40,6 +41,7 @@ class EonNextCoordinator(DataUpdateCoordinator):
         )
         self.api = api
         self._cost_warning_logged: set[str] = set()
+        self._consumption_probed: set[str] = set()
 
     async def _async_update_data(self) -> dict[str, dict[str, Any]]:
         """Fetch data from the Eon Next API."""
@@ -425,8 +427,12 @@ class EonNextCoordinator(DataUpdateCoordinator):
             _LOGGER.debug(
                 "REST half-hourly consumption unavailable for meter %s: %s",
                 meter.serial,
-                err,
+                redact_secrets(err),
             )
+
+        # Half-hourly data was empty or rejected.  Once per meter per run,
+        # record which request shapes E.ON accepts so the cause is visible.
+        await self._probe_half_hour_once(meter)
 
         # Fall back to daily-grouped REST data
         try:
@@ -449,6 +455,82 @@ class EonNextCoordinator(DataUpdateCoordinator):
             )
 
         return None, None
+
+    @staticmethod
+    def _describe_consumption(result: dict[str, Any] | None) -> str:
+        """One-line summary of a consumption response for the probe log."""
+        if not result:
+            return "HTTP 200 but no 'results' key"
+        entries = result.get("results") or []
+        if not entries:
+            return "HTTP 200, 0 results"
+        first, last = entries[0], entries[-1]
+        span = "span unknown"
+        start = dt_util.parse_datetime(str(first.get("interval_start") or ""))
+        end = dt_util.parse_datetime(str(first.get("interval_end") or ""))
+        if start and end:
+            span = f"interval {int((end - start).total_seconds() // 60)} min"
+        non_null = sum(1 for e in entries if e.get("consumption") is not None)
+        return (
+            f"HTTP 200, {len(entries)} results ({non_null} with a value), {span}, "
+            f"first {first.get('interval_start')}, last {last.get('interval_start')}"
+        )
+
+    async def _probe_half_hour_once(self, meter) -> None:
+        """Diagnostic: log which consumption request shapes E.ON accepts.
+
+        Runs at most once per meter per Home Assistant run, and only after the
+        half-hourly request produced no data.  Purely informational: nothing
+        from the probe feeds sensors or statistics.
+
+        The probe issues several extra requests, so it only runs when debug
+        logging is enabled for this integration; normal installs pay nothing.
+        """
+        if not _LOGGER.isEnabledFor(logging.DEBUG):
+            return
+        if meter.serial in self._consumption_probed:
+            return
+        self._consumption_probed.add(meter.serial)
+
+        fmt = "%Y-%m-%dT%H:%M:%SZ"
+        period_from = dt_util.as_utc(
+            dt_util.start_of_local_day(dt_util.now().date() - timedelta(days=2))
+        ).strftime(fmt)
+        period_to = dt_util.utcnow().strftime(fmt)
+        variants: list[tuple[str, dict[str, Any]]] = [
+            ("group_by=half_hour (current request)", {"group_by": "half_hour", "page_size": 100}),
+            ("no group_by", {"group_by": None, "page_size": 100}),
+            ("no group_by + period_from", {"group_by": None, "page_size": 100, "period_from": period_from}),
+            (
+                "no group_by + period_from/to",
+                {"group_by": None, "page_size": 100, "period_from": period_from, "period_to": period_to},
+            ),
+            (
+                "group_by=half_hour + period_from/to",
+                {"group_by": "half_hour", "page_size": 100, "period_from": period_from, "period_to": period_to},
+            ),
+            ("group_by=hour", {"group_by": "hour", "page_size": 48}),
+        ]
+
+        lines: list[str] = []
+        for label, kwargs in variants:
+            try:
+                result = await self.api.async_get_consumption(
+                    meter.type, meter.supply_point_id, meter.serial, **kwargs
+                )
+                outcome = self._describe_consumption(result)
+            except EonNextAuthError:
+                outcome = "authentication rejected"
+            except Exception as err:  # pylint: disable=broad-except
+                outcome = redact_secrets(err)
+            lines.append(f"  - {label}: {outcome}")
+
+        _LOGGER.debug(
+            "Half-hourly consumption is unavailable for meter %s; E.ON's response "
+            "to each request shape:\n%s",
+            meter.serial,
+            "\n".join(lines),
+        )
 
     @staticmethod
     def _pence_to_pounds(value: Any) -> float | None:
