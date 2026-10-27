@@ -4,7 +4,7 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
-## [2.0.0](https://github.com/TobySmithRM/eon-next-v2/compare/v1.10.0...v2.0.0) (2026-10-26)
+## [2.0.0](https://github.com/TobySmithRM/eon-next-v2/compare/v1.10.0...v2.0.0) (2026-10-27)
 
 
 ### ⚠ BREAKING CHANGES
@@ -21,12 +21,14 @@ This project is a fork of [madmachinations/eon-next-v2](https://github.com/madma
 
 * **auth:** add API key login and require it for new and re-authenticated entries
 * **auth:** redact credentials, tokens, and emails from all log output
+* **statistics:** import live consumption via a rolling window that is re-spliced every poll, so late-arriving and partial hours are corrected instead of being stuck until a backfill catch-up
 
 
 ### Bug Fixes
 
-* **coordinator:** add an opt-in (debug-only) half-hourly consumption probe to diagnose missing same-day data
-* **api:** allow consumption requests without a `group_by` grouping
+* **api:** request half-hourly consumption without `group_by` (E.ON rejects `group_by=half_hour` with HTTP 400) and fetch the live window via `period_from`
+* **statistics:** supersede stale daily buckets with real hourly data instead of double-counting them
+* **coordinator:** diagnose missing same-day half-hourly consumption with a one-off per-run probe
 
 ## [1.10.0](https://github.com/monsagri/eon-next-v2/compare/v1.9.3...v1.10.0) (2026-07-11)
 
