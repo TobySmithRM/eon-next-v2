@@ -37,10 +37,11 @@ Core outcomes:
 ## Domain-Specific Data Flow
 
 - Authentication:
-  - Primary: email/password login.
+  - Primary: per-account API key (`sk_live_...`); E.ON removed email/password
+    logins from its token mutation. Entries without a key go straight to re-auth.
   - Session continuity: refresh token persistence in config entry data.
 - Consumption fetching order:
-  - REST half-hourly first.
+  - REST half-hourly first (omit `group_by`; `group_by=half_hour` returns HTTP 400).
   - REST daily second.
   - (The GraphQL `consumptionDataByMpxn` fallback was removed from the Kraken
     API and is no longer part of the chain.)

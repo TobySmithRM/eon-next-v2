@@ -39,3 +39,12 @@ DEFAULT_BACKFILL_REBUILD_STATISTICS = True
 API_BASE_URL = "https://api.eonnext-kraken.energy/v1"
 GAS_CALORIC_VALUE = 38
 GAS_VOLUME_CORRECTION = 1.02264
+
+# The live (coordinator) path owns a rolling window of recent history: from
+# local midnight LIVE_WINDOW_DAYS days ago up to now.  Each poll re-fetches that
+# window and splices it into the statistics, so late-arriving or partial hours
+# are corrected automatically.  Anything older is the historical backfill's job.
+LIVE_WINDOW_DAYS = 3
+# Whole days in the window plus today, at 48 half-hours a day, plus headroom for
+# a 25-hour DST day.
+LIVE_PAGE_SIZE = (LIVE_WINDOW_DAYS + 1) * 48 + 48

@@ -22,6 +22,8 @@ from homeassistant.setup import async_setup_component
 
 from custom_components.eon_next.statistics import (
     _merge_and_recompute_series,
+    _series_unchanged,
+    live_window_start,
     async_import_consumption_statistics,
     async_import_historical_statistics,
     statistic_id_for_meter,
@@ -147,9 +149,10 @@ async def test_live_append_survives_later_backfill(hass: HomeAssistant) -> None:
     await _ensure_recorder(hass)
     meter = "COEXIST-METER"  # unique serial to isolate recorder state
 
-    # Live append at Day A.
+    # Live import inside the live window (the live path ignores older hours).
+    live_hour = live_window_start() + timedelta(days=1, hours=2)
     await async_import_consumption_statistics(
-        hass, meter, "electricity", [_entry(_DAY_A, 3.0)]
+        hass, meter, "electricity", [_entry(live_hour, 3.0)]
     )
     assert await _read_sums(hass, meter, expect=1) == [3.0]
     await _flush(hass)
@@ -239,3 +242,144 @@ def test_merge_hourly_granularity_never_skips() -> None:
     # The new value replaced hour 0 (0.5 -> 2.0), so the whole series shifts +1.5.
     assert series[0][1] == 2.0
     assert len(series) == 24
+
+
+# --- Rolling live window ------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_new_install_imports_window_from_zero(hass: HomeAssistant) -> None:
+    """With no history the live path starts a series at zero inside the window."""
+    await _ensure_recorder(hass)
+    meter = "NEWINSTALL-METER"
+    start = live_window_start()
+
+    await async_import_consumption_statistics(
+        hass, meter, "electricity",
+        [_entry(start + timedelta(hours=h), 1.0) for h in range(3)],
+    )
+
+    assert await _read_sums(hass, meter, expect=3) == [1.0, 2.0, 3.0]
+
+
+@pytest.mark.asyncio
+async def test_live_import_ignores_hours_older_than_window(hass: HomeAssistant) -> None:
+    """Older history is the backfill's job: the live path never writes it."""
+    await _ensure_recorder(hass)
+    meter = "OLDHOURS-METER"
+    start = live_window_start()
+
+    await async_import_consumption_statistics(
+        hass, meter, "electricity",
+        [
+            _entry(start - timedelta(hours=5), 9.0),  # before the window
+            _entry(start + timedelta(hours=1), 1.0),
+        ],
+    )
+
+    assert await _read_sums(hass, meter, expect=1) == [1.0]
+
+
+@pytest.mark.asyncio
+async def test_late_and_partial_hours_are_corrected_on_next_poll(
+    hass: HomeAssistant,
+) -> None:
+    """A hour imported partial, and an earlier hour that arrives late, are fixed."""
+    await _ensure_recorder(hass)
+    meter = "LATE-METER"
+    start = live_window_start() + timedelta(hours=10)
+
+    # First poll: hour 1 only half delivered; hour 0 not delivered yet.
+    await async_import_consumption_statistics(
+        hass, meter, "electricity", [_entry(start + timedelta(hours=1), 0.5)]
+    )
+    assert await _read_sums(hass, meter, expect=1) == [0.5]
+    await _flush(hass)
+
+    # Later poll: hour 0 has arrived and hour 1 is now complete.
+    await async_import_consumption_statistics(
+        hass, meter, "electricity",
+        [_entry(start, 2.0), _entry(start + timedelta(hours=1), 1.0)],
+    )
+    assert await _read_sums(hass, meter, expect=2) == [2.0, 3.0]
+
+
+@pytest.mark.asyncio
+async def test_daily_bucket_on_first_window_day_is_replaced_not_added_to(
+    hass: HomeAssistant,
+) -> None:
+    """The upgrade case: a daily bucket sits on the window's first midnight."""
+    await _ensure_recorder(hass)
+    meter = "DAILYSWAP-METER"
+    start = live_window_start()
+
+    # A daily bucket (whole day = 40 kWh) at the window's first local midnight.
+    await async_import_historical_statistics(
+        hass, meter, "electricity", [_entry(start, 40.0)]
+    )
+    assert await _read_sums(hass, meter, expect=1) == [40.0]
+    await _flush(hass)
+
+    # Half-hourly data arrives for that day, without a slot in hour 00:00.
+    await async_import_consumption_statistics(
+        hass, meter, "electricity",
+        [_entry(start + timedelta(hours=h), 1.0) for h in (1, 2, 3)],
+    )
+
+    # The bucket's row is zeroed and the day's real hours (3 kWh) follow, so the
+    # series stays monotonic and never carries the stale 40 kWh sum.
+    sums = await _read_sums(hass, meter, expect=4)
+    assert sums == [0.0, 1.0, 2.0, 3.0]
+    assert all(b >= a for a, b in zip(sums, sums[1:]))
+
+
+def test_series_unchanged_detects_noop_and_change() -> None:
+    rows = [(_MIDNIGHT, 1.0), (_MIDNIGHT + timedelta(hours=1), 2.0)]
+    assert _series_unchanged(rows, [(_MIDNIGHT, 1.0), (_MIDNIGHT + timedelta(hours=1), 2.0004)])
+    assert not _series_unchanged(rows, [(_MIDNIGHT, 1.0), (_MIDNIGHT + timedelta(hours=1), 2.01)])
+    assert not _series_unchanged(rows, rows[:1])
+
+
+class TestSupersedeDailyBuckets:
+    """Pure-function cases for replacing a daily bucket with real hours."""
+
+    def test_midnight_hour_overwrites_the_bucket(self) -> None:
+        existing = [(_MIDNIGHT, 40.0)]
+        new = {_MIDNIGHT + timedelta(hours=h): 1.0 for h in range(3)}
+        series = _merge_and_recompute_series(
+            0.0, existing, new, supersede_daily_buckets=True
+        )
+        assert [s for _, s in series] == [1.0, 2.0, 3.0]
+
+    def test_bucket_zeroed_when_new_data_lacks_midnight(self) -> None:
+        existing = [(_MIDNIGHT, 40.0)]
+        new = {_MIDNIGHT + timedelta(hours=h): 1.0 for h in (1, 2)}
+        series = _merge_and_recompute_series(
+            0.0, existing, new, supersede_daily_buckets=True
+        )
+        # Midnight row kept, but with the bucket's consumption removed.
+        assert [s for _, s in series] == [0.0, 1.0, 2.0]
+
+    def test_single_new_hour_is_not_enough_evidence(self) -> None:
+        existing = [(_MIDNIGHT, 40.0)]
+        new = {_MIDNIGHT + timedelta(hours=1): 1.0}
+        series = _merge_and_recompute_series(
+            0.0, existing, new, supersede_daily_buckets=True
+        )
+        assert [s for _, s in series] == [40.0, 41.0]
+
+    def test_genuine_hourly_day_is_left_alone(self) -> None:
+        existing = [(_MIDNIGHT + timedelta(hours=h), float(h + 1)) for h in range(3)]
+        new = {_MIDNIGHT + timedelta(hours=5): 1.0, _MIDNIGHT + timedelta(hours=6): 1.0}
+        series = _merge_and_recompute_series(
+            0.0, existing, new, supersede_daily_buckets=True
+        )
+        assert [s for _, s in series][:3] == [1.0, 2.0, 3.0]
+        assert len(series) == 5
+
+    def test_not_applied_unless_requested(self) -> None:
+        """The backfill path keeps its own daily-vs-hourly rules."""
+        existing = [(_MIDNIGHT, 40.0)]
+        new = {_MIDNIGHT + timedelta(hours=h): 1.0 for h in (1, 2)}
+        series = _merge_and_recompute_series(0.0, existing, new)
+        assert [s for _, s in series] == [40.0, 41.0, 42.0]

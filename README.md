@@ -99,12 +99,13 @@ When SmartFlex devices are available: smart‑charging schedule status, next cha
 ### Energy Dashboard & statistics
 
 - Current‑price and consumption entities wire directly into Home Assistant's Energy Dashboard.
-- A slow, resumable **historical backfill** imports long‑term statistics (see below).
+- Recent consumption is kept up to date automatically: every refresh re‑imports a **rolling window** (the last three full days plus today) at half‑hourly resolution, so hours that E.ON delivers late or in pieces are corrected on the next refresh.
+- A slow, resumable **historical backfill** imports older long‑term statistics (see below).
 - A diagnostic status sensor reports backfill progress.
 
 ### Reliability
 
-- Home Assistant re‑auth support when an API key is rotated or revoked.
+- Home Assistant re‑auth support when sign‑in fails or the API key is rotated or revoked.
 - Transient connectivity failures during login defer setup instead of invalidating stored credentials.
 - Auth/login GraphQL requests retry once over IPv4 after connector‑level network‑unreachable failures.
 
@@ -133,8 +134,7 @@ resources:
 
 - Home Assistant `2026.3.0` or newer (which requires Python 3.14).
 - An active E.ON Next account.
-- An E.ON Next **API key** (`sk_live_…`). E.ON no longer accepts email/password
-  logins, so a key is required. See [Creating an E.ON Next API key](API_KEY.md).
+- An E.ON Next **API key** (`sk_live_…`) — E.ON no longer accepts email/password logins, so a key is required. See [Signing in with an API key](#signing-in-with-an-api-key) below.
 
 ## Install with HACS (recommended)
 
@@ -156,8 +156,7 @@ Or add it manually:
 4. Find **Eon Next Integration** in HACS and install it.
 5. Restart Home Assistant.
 6. Go to **Settings → Devices & Services → Add Integration**.
-7. Search for **Eon Next** and enter your account email and API key (see
-   [Creating an E.ON Next API key](API_KEY.md)).
+7. Search for **Eon Next** and complete login.
 
 ## Manual installation
 
@@ -167,11 +166,49 @@ Or add it manually:
 
 ## Reauthentication
 
-If your API key is rotated or revoked, Home Assistant prompts for re‑authentication. Open the integration card and complete the re‑auth flow with a new API key to restore updates.
+If your login expires or your API key changes, Home Assistant prompts for re‑authentication. Open the integration card and complete the re‑auth flow to restore updates.
+
+### Signing in with an API key
+
+E.ON has removed password logins from its API, so the integration signs in with a long-lived per-account API key, entered in the **API key** field of the setup or re-auth form. Existing entries that still hold a password will ask for re-authentication once; the stored password is cleared when you submit the key.
+
+To create a key:
+
+1. Log in to your account at [www.eonnext.com](https://www.eonnext.com) in a desktop browser.
+2. Open the browser developer tools (F12) and go to the **Console** tab. Browsers may ask you to type `allow pasting` first.
+3. Paste the script below and press Enter. It reads the session token your browser already holds, only talks to `api.eonnext-kraken.energy`, and creates a key only if you do not already have one.
+4. Copy the key (it starts with `sk_live_`), store it in a password manager, and paste it into Home Assistant. It is shown once and should be treated like a password.
+
+```js
+(async () => {
+  const url = 'https://api.eonnext-kraken.energy/v1/graphql/';
+  const entry = Object.keys(localStorage).find((k) => {
+    if (!k.startsWith('@@auth0spajs@@')) return false;
+    try { return !!JSON.parse(localStorage[k]).id_token; } catch { return false; }
+  });
+  if (!entry) return console.log('No logged-in session found - log in first.');
+  const token = JSON.parse(localStorage[entry]).id_token;
+  const gql = (query) => fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', authorization: 'Bearer ' + token },
+    body: JSON.stringify({ query }),
+  }).then((r) => r.json());
+  const existing = await gql('query { viewer { liveSecretKey } }');
+  if (existing.errors || existing.data.viewer.liveSecretKey) {
+    return console.log('Not creating a key (one may already exist):', JSON.stringify(existing.errors ?? existing.data));
+  }
+  const created = await gql('mutation { regenerateSecretKey { key } }');
+  console.log('API key:', created.data?.regenerateSecretKey?.key ?? JSON.stringify(created.errors));
+})();
+```
+
+Only run console scripts you have read and understand. If a key already exists the script will not replace it; use the key you saved earlier.
 
 ## Historical backfill (configurable)
 
 The integration supports a slow, resumable historical backfill for Energy Dashboard statistics.
+
+The two importers split the timeline so they never double‑count: the live refresh owns the rolling window (from local midnight three days ago until now), and the backfill is for anything older. On a new install the Energy Dashboard therefore fills in the last few days straight away; enable the backfill if you also want earlier history. Days outside the window are not revisited automatically, so after an outage longer than three days, extend the backfill look‑back to fill the gap.
 
 - Configure it in **Settings → Devices & Services → Eon Next → Configure**.
 - Progress is persisted and resumes across Home Assistant restarts.
@@ -190,6 +227,10 @@ Conservative defaults:
 | Delay between requests | `300` seconds |
 
 ## Upgrade notes
+
+Consumption statistics now use a rolling live window (see *Historical backfill*). On first refresh after upgrading, any daily statistic that backfill left within the last three days is replaced by that day's real half‑hourly hours rather than added to. Older statistics are untouched.
+
+E.ON's consumption endpoint rejects `group_by=half_hour`, which previously left the integration permanently on daily data; the live request now omits `group_by`, which returns half‑hourly slots.
 
 In `1.2.0`, the `Daily Consumption` sensor state class changed to `total` and now provides a data‑driven `last_reset` for improved Energy Dashboard compatibility. If your instance still has long‑term statistics from older semantics (`measurement` or `total_increasing`), you may need to recreate affected statistics/dashboard cards.
 

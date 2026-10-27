@@ -17,7 +17,7 @@ from homeassistant.const import UnitOfEnergy
 from homeassistant.core import HomeAssistant
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import DOMAIN, LIVE_WINDOW_DAYS
 from .eonnext import METER_TYPE_ELECTRIC, METER_TYPE_GAS
 
 _LOGGER = logging.getLogger(__name__)
@@ -45,6 +45,17 @@ def _sanitize_id(value: str) -> str:
 def _hour_start(dt: datetime) -> datetime:
     """Round a datetime down to the start of its hour (UTC)."""
     return dt.replace(minute=0, second=0, microsecond=0)
+
+
+def live_window_start() -> datetime:
+    """UTC start of the live window: local midnight ``LIVE_WINDOW_DAYS`` ago.
+
+    Aligning to local midnight matters: a daily bucket written by an older
+    version or by the historical backfill sits on its day's local midnight, and
+    the live splice overwrites exactly that row with the day's real hours.
+    """
+    first_day = dt_util.now().date() - timedelta(days=LIVE_WINDOW_DAYS)
+    return dt_util.as_utc(dt_util.start_of_local_day(first_day))
 
 
 def statistic_id_for_meter(meter_serial: str, meter_type: str) -> str | None:
@@ -195,17 +206,17 @@ async def async_import_consumption_statistics(
     meter_type: str,
     consumption_entries: list[dict[str, Any]],
 ) -> None:
-    """Import consumption data as external statistics with correct timestamps.
+    """Import recent half-hourly consumption as external statistics.
 
-    Aggregates half-hourly (or daily) entries into hourly buckets, retrieves
-    the last known cumulative sum, and calls ``async_add_external_statistics``
-    so the Energy Dashboard shows consumption in the correct time period.
-
-    This is the *append-only* live path: it only writes hours newer than the
-    latest existing statistic.  Historical backfill uses
-    :func:`async_import_historical_statistics`, which can splice earlier hours
-    in and rewrite subsequent sums.
+    The live path owns a rolling window (see :func:`live_window_start`).  Each
+    call splices the window's hours into the stored series, overwriting hours
+    that already exist and recomputing the cumulative sums, so hours that
+    arrived late, partially or out of order are corrected on the next poll.
+    Entries older than the window are ignored: older history belongs to the
+    historical backfill, and keeping the two ranges apart is what stops them
+    double-counting each other.  A poll that changes nothing writes nothing.
     """
+    from homeassistant.helpers.recorder import get_instance
     from homeassistant.components.recorder.models import (
         StatisticData,
         StatisticMetaData,
@@ -214,7 +225,12 @@ async def async_import_consumption_statistics(
         async_add_external_statistics,
     )
 
-    hourly = _group_consumption_by_hour(consumption_entries)
+    window_start = live_window_start()
+    hourly = {
+        hour: kwh
+        for hour, kwh in _group_consumption_by_hour(consumption_entries).items()
+        if hour >= window_start
+    }
     if not hourly:
         return
 
@@ -227,49 +243,85 @@ async def async_import_consumption_statistics(
         )
         return
 
-    metadata_dict = _build_statistic_metadata(meter_serial, meter_type, statistic_id)
-
-    sorted_hours = sorted(hourly.keys())
-    if not sorted_hours:
-        return
+    # Splice from the window start (not the first hour that happens to have
+    # data) so a daily bucket on the window's first day is always in view.
+    chunk_min = window_start
+    end = _hour_start(dt_util.utcnow()) + timedelta(hours=1)
     try:
-        last_start, last_sum = await _get_last_stat(
-            hass, statistic_id, sorted_hours[0]
+        baseline_sum, existing = await _fetch_baseline_and_existing(
+            hass, statistic_id, chunk_min, end
         )
     except StatisticsLookupError as err:
         # Skip this cycle entirely rather than import with a guessed base.
-        _LOGGER.warning(
-            "Skipping statistics import for %s: %s", statistic_id, err
-        )
+        _LOGGER.warning("Skipping statistics import for %s: %s", statistic_id, err)
         return
 
-    statistics: list[StatisticData] = []
-    cumulative_sum = last_sum
-    for hour in sorted_hours:
-        if last_start is not None and hour <= last_start:
-            continue
-
-        kwh = round(hourly[hour], 3)
-        cumulative_sum = round(cumulative_sum + kwh, 3)
-        statistics.append(
-            StatisticData(
-                start=hour,
-                state=cumulative_sum,
-                sum=cumulative_sum,
-            )
-        )
-
-    if not statistics:
-        return
-
-    async_add_external_statistics(
-        hass, StatisticMetaData(**metadata_dict), statistics
+    series = _merge_and_recompute_series(
+        baseline_sum, existing, hourly, supersede_daily_buckets=True
     )
+    if _series_unchanged(existing, series):
+        return
+
+    statistics = [
+        StatisticData(start=hour, state=cumulative, sum=cumulative)
+        for hour, cumulative in series
+    ]
+    async_add_external_statistics(
+        hass,
+        StatisticMetaData(
+            **_build_statistic_metadata(meter_serial, meter_type, statistic_id)
+        ),
+        statistics,
+    )
+    # Make the write durable so a concurrent backfill chunk (which reads rows
+    # back to rebase sums) never sees a stale series.
+    await get_instance(hass).async_block_till_done()
     _LOGGER.debug(
-        "Imported %d hourly statistics for %s",
+        "Spliced %d hourly statistics for %s from %s",
         len(statistics),
         statistic_id,
+        chunk_min.isoformat(),
     )
+
+
+def _series_unchanged(
+    existing: list[tuple[datetime, float]],
+    series: list[tuple[datetime, float]],
+) -> bool:
+    """True when ``series`` matches the stored rows, so no write is needed."""
+    if len(existing) != len(series):
+        return False
+    return all(
+        old_hour == new_hour and abs(old_sum - new_sum) < 0.0005
+        for (old_hour, old_sum), (new_hour, new_sum) in zip(existing, series)
+    )
+
+
+def _neutralise_superseded_daily_buckets(
+    per_hour: dict[datetime, float], new_hourly: dict[datetime, float]
+) -> None:
+    """Zero out lone midnight rows that real hourly data is about to replace.
+
+    The row is rewritten with no consumption rather than omitted: statistics
+    are upserted by hour, so leaving it out of the written series would leave
+    the stale bucket (and its large cumulative sum) in the recorder.
+    """
+    days: dict[Any, list[datetime]] = defaultdict(list)
+    for hour in new_hourly:
+        days[dt_util.as_local(hour).date()].append(hour)
+
+    for day, new_hours in days.items():
+        day_start = dt_util.as_utc(dt_util.start_of_local_day(day))
+        day_end = dt_util.as_utc(
+            dt_util.start_of_local_day(day + timedelta(days=1))
+        )
+        in_day = [h for h in per_hour if day_start <= h < day_end]
+        if (
+            len(new_hours) >= 2
+            and in_day == [day_start]
+            and day_start not in new_hourly
+        ):
+            per_hour[day_start] = 0.0
 
 
 def _merge_and_recompute_series(
@@ -278,6 +330,7 @@ def _merge_and_recompute_series(
     new_hourly: dict[datetime, float],
     *,
     daily_granularity: bool = False,
+    supersede_daily_buckets: bool = False,
 ) -> list[tuple[datetime, float]]:
     """Splice new hours into an existing series and recompute cumulative sums.
 
@@ -296,6 +349,13 @@ def _merge_and_recompute_series(
     only overwrite one of that day's ~24 hours and leave the rest - inflating
     the day by ~2x.  So a daily bucket is skipped for any day already covered by
     more than one existing row; the finer rows are more accurate and preserved.
+
+    ``supersede_daily_buckets`` is the converse, for hourly data arriving over a
+    day that currently holds a daily bucket (left by an older version or by the
+    backfill).  If a local day's only existing row is a lone entry at the day's
+    midnight that the new data does not itself cover, and the new data has real
+    hours for that day, the lone row is the daily bucket and is zeroed - the
+    day's hours replace it rather than adding on top of it.
     """
     per_hour: dict[datetime, float] = {}
 
@@ -304,6 +364,9 @@ def _merge_and_recompute_series(
     for hour, cumulative in existing:
         per_hour[hour] = round(cumulative - prev_sum, 3)
         prev_sum = cumulative
+
+    if supersede_daily_buckets and not daily_granularity:
+        _neutralise_superseded_daily_buckets(per_hour, new_hourly)
 
     effective_new = dict(new_hourly)
     if daily_granularity:
@@ -354,15 +417,22 @@ async def _fetch_baseline_and_existing(
 
         instance = get_instance(hass)
 
-        # Baseline: the newest stored row strictly before the chunk.
-        before_rows = await instance.async_add_executor_job(
-            _rows, chunk_min - timedelta(days=3650), chunk_min
-        )
+        # Baseline: the newest stored row strictly before the chunk.  The live
+        # path calls this every poll, so look back a short way first and only
+        # scan the whole history when that finds nothing.
         baseline_sum = 0.0
-        for row in before_rows:
-            start_dt = _row_start(row)
-            if start_dt is not None and start_dt < chunk_min:
-                baseline_sum = float(row.get("sum", 0.0) or 0.0)
+        for lookback_days in (14, 3650):
+            before_rows = await instance.async_add_executor_job(
+                _rows, chunk_min - timedelta(days=lookback_days), chunk_min
+            )
+            found = False
+            for row in before_rows:
+                start_dt = _row_start(row)
+                if start_dt is not None and start_dt < chunk_min:
+                    baseline_sum = float(row.get("sum", 0.0) or 0.0)
+                    found = True
+            if found:
+                break
 
         # Existing rows from the chunk start onward (these get rewritten).
         after_rows = await instance.async_add_executor_job(_rows, chunk_min, end)

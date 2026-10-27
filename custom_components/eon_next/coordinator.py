@@ -18,7 +18,8 @@ from .eonnext import (
     METER_TYPE_GAS,
     redact_secrets,
 )
-from .statistics import async_import_consumption_statistics
+from .const import LIVE_PAGE_SIZE
+from .statistics import async_import_consumption_statistics, live_window_start
 from .tariff_helpers import cost_consumption_entries, get_current_rate
 
 _LOGGER = logging.getLogger(__name__)
@@ -398,29 +399,37 @@ class EonNextCoordinator(DataUpdateCoordinator):
     ) -> tuple[list[dict[str, Any]] | None, str | None]:
         """Fetch consumption data, preferring half-hourly granularity.
 
-        Tries half-hourly REST data first (up to 96 half-hour slots,
-        approximately two days), then falls back to daily REST data.
+        Tries half-hourly REST data first, covering the live window (local
+        midnight ``LIVE_WINDOW_DAYS`` ago until now), then falls back to daily
+        REST data.  E.ON's endpoint returns half-hourly slots when ``group_by``
+        is omitted; ``group_by=half_hour`` is rejected with HTTP 400.
 
         Returns ``(entries, granularity)`` where granularity is
         ``"half_hour"`` or ``"day"``.  Callers must not import daily-granularity
         data into external statistics: today's partial daily bucket would be
         double-counted once the half-hourly hours become available.
         """
-        # Try half-hourly data first.  Fetch a little over two full days (100
-        # slots) so that yesterday's data is always complete even when today's
-        # entries have started arriving and even on the autumn clocks-back day
-        # (50 half-hour slots), which is needed for the previous-day cost
-        # calculation.
+        # The window is aligned to local midnight so the statistics splice can
+        # replace whole days, and sized to hold it on a 25-hour DST day.  The
+        # same entries feed the daily/previous-day sensors, which need
+        # yesterday complete even once today's slots have started arriving.
         try:
             result = await self.api.async_get_consumption(
                 meter.type,
                 meter.supply_point_id,
                 meter.serial,
-                group_by="half_hour",
-                page_size=100,
+                group_by=None,
+                page_size=LIVE_PAGE_SIZE,
+                period_from=live_window_start().strftime("%Y-%m-%dT%H:%M:%SZ"),
             )
-            if result and "results" in result and len(result["results"]) > 0:
-                return result["results"], "half_hour"
+            entries = (result or {}).get("results") or []
+            if entries and self._entries_are_half_hourly(entries):
+                return entries, "half_hour"
+            if entries:
+                _LOGGER.debug(
+                    "Consumption for meter %s was not half-hourly; using daily data",
+                    meter.serial,
+                )
         except EonNextAuthError:
             raise
         except Exception as err:  # pylint: disable=broad-except
@@ -457,6 +466,21 @@ class EonNextCoordinator(DataUpdateCoordinator):
         return None, None
 
     @staticmethod
+    def _entries_are_half_hourly(entries: list[dict[str, Any]]) -> bool:
+        """False when entries carry intervals longer than one half-hour.
+
+        Guards the statistics import: coarser buckets mislabelled as
+        half-hourly would be spliced in as if they were single hours.  Entries
+        without parseable interval bounds are given the benefit of the doubt.
+        """
+        for entry in entries[:3]:
+            start = dt_util.parse_datetime(str(entry.get("interval_start") or ""))
+            end = dt_util.parse_datetime(str(entry.get("interval_end") or ""))
+            if start and end and (end - start) > timedelta(minutes=31):
+                return False
+        return True
+
+    @staticmethod
     def _describe_consumption(result: dict[str, Any] | None) -> str:
         """One-line summary of a consumption response for the probe log."""
         if not result:
@@ -482,12 +506,7 @@ class EonNextCoordinator(DataUpdateCoordinator):
         Runs at most once per meter per Home Assistant run, and only after the
         half-hourly request produced no data.  Purely informational: nothing
         from the probe feeds sensors or statistics.
-
-        The probe issues several extra requests, so it only runs when debug
-        logging is enabled for this integration; normal installs pay nothing.
         """
-        if not _LOGGER.isEnabledFor(logging.DEBUG):
-            return
         if meter.serial in self._consumption_probed:
             return
         self._consumption_probed.add(meter.serial)
@@ -496,18 +515,19 @@ class EonNextCoordinator(DataUpdateCoordinator):
         period_from = dt_util.as_utc(
             dt_util.start_of_local_day(dt_util.now().date() - timedelta(days=2))
         ).strftime(fmt)
-        period_to = dt_util.utcnow().strftime(fmt)
         variants: list[tuple[str, dict[str, Any]]] = [
-            ("group_by=half_hour (current request)", {"group_by": "half_hour", "page_size": 100}),
-            ("no group_by", {"group_by": None, "page_size": 100}),
-            ("no group_by + period_from", {"group_by": None, "page_size": 100, "period_from": period_from}),
             (
-                "no group_by + period_from/to",
-                {"group_by": None, "page_size": 100, "period_from": period_from, "period_to": period_to},
+                "no group_by + period_from (current request)",
+                {
+                    "group_by": None,
+                    "page_size": LIVE_PAGE_SIZE,
+                    "period_from": period_from,
+                },
             ),
+            ("no group_by", {"group_by": None, "page_size": 100}),
             (
-                "group_by=half_hour + period_from/to",
-                {"group_by": "half_hour", "page_size": 100, "period_from": period_from, "period_to": period_to},
+                "group_by=half_hour (previous request)",
+                {"group_by": "half_hour", "page_size": 100},
             ),
             ("group_by=hour", {"group_by": "hour", "page_size": 48}),
         ]
@@ -525,7 +545,7 @@ class EonNextCoordinator(DataUpdateCoordinator):
                 outcome = redact_secrets(err)
             lines.append(f"  - {label}: {outcome}")
 
-        _LOGGER.debug(
+        _LOGGER.warning(
             "Half-hourly consumption is unavailable for meter %s; E.ON's response "
             "to each request shape:\n%s",
             meter.serial,

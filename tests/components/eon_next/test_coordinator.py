@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from custom_components.eon_next.coordinator import EonNextCoordinator
+from custom_components.eon_next.eonnext import EonNextApiError
 
 # Fixed reference time: 2025-06-15 14:00 UTC.  All tests derive
 # "yesterday" / "today" from this constant so they never become flaky
@@ -350,6 +351,9 @@ class TestFetchConsumptionGranularity:
         # only depends on self.api.
         coord = EonNextCoordinator.__new__(EonNextCoordinator)
         coord.api = api
+        # These tests are about granularity; the one-off diagnostic probe has
+        # its own tests below, so mark the test meter as already probed.
+        coord._consumption_probed = {"m1"}
         return coord
 
     @staticmethod
@@ -396,3 +400,132 @@ class TestFetchConsumptionGranularity:
         entries, granularity = await coord._fetch_consumption(self._meter())
         assert entries is None
         assert granularity is None
+
+
+class TestHalfHourProbe:
+    """The one-off probe logs how E.ON answers each consumption request shape."""
+
+    @staticmethod
+    def _coordinator(api) -> EonNextCoordinator:
+        coord = EonNextCoordinator.__new__(EonNextCoordinator)
+        coord.api = api
+        coord._consumption_probed = set()
+        return coord
+
+    @staticmethod
+    def _meter() -> SimpleNamespace:
+        return SimpleNamespace(
+            type="electricity", supply_point_id="sp-1", serial="m1"
+        )
+
+    @staticmethod
+    def _api() -> SimpleNamespace:
+        """E.ON rejects the live request shape; every other shape works."""
+
+        async def _get(*_a, group_by="day", page_size=10, period_from=None, **_kw):
+            if group_by is None and period_from is not None:
+                raise EonNextApiError(
+                    "REST consumption endpoint returned status 400: bad request"
+                )
+            return {
+                "results": [
+                    {
+                        "interval_start": "2026-10-24T00:00:00+01:00",
+                        "interval_end": "2026-10-24T00:30:00+01:00",
+                        "consumption": 0.1,
+                    }
+                ]
+            }
+
+        return SimpleNamespace(async_get_consumption=AsyncMock(side_effect=_get))
+
+    @pytest.mark.asyncio
+    async def test_probe_logs_each_variant_once_and_keeps_daily_fallback(
+        self, caplog: pytest.LogCaptureFixture
+    ) -> None:
+        api = self._api()
+        coord = self._coordinator(api)
+
+        with caplog.at_level("WARNING", logger="custom_components.eon_next.coordinator"):
+            entries, granularity = await coord._fetch_consumption(self._meter())
+            first_call_count = api.async_get_consumption.await_count
+            await coord._fetch_consumption(self._meter())
+
+        # The probe never changes what the coordinator uses.
+        assert granularity == "day"
+        assert entries is not None
+
+        probe_logs = [r for r in caplog.records if "Half-hourly consumption" in r.message]
+        assert len(probe_logs) == 1
+        text = probe_logs[0].getMessage()
+        assert "m1" in text
+        assert "(current request)" in text and "status 400: bad request" in text
+        assert "interval 30 min" in text
+
+        # 1 live request + 4 probe variants + 1 daily on the first pass; the
+        # second pass must not probe again (1 live request + 1 daily).
+        assert first_call_count == 6
+        assert api.async_get_consumption.await_count == first_call_count + 2
+
+    @pytest.mark.asyncio
+    async def test_probe_failure_never_breaks_fetch(self) -> None:
+        api = SimpleNamespace(
+            async_get_consumption=AsyncMock(side_effect=EonNextApiError("down"))
+        )
+        coord = self._coordinator(api)
+        entries, granularity = await coord._fetch_consumption(self._meter())
+        assert (entries, granularity) == (None, None)
+
+
+class TestLiveRequestShape:
+    """The live request omits group_by and asks for the rolling window."""
+
+    @staticmethod
+    def _coordinator(api) -> EonNextCoordinator:
+        coord = EonNextCoordinator.__new__(EonNextCoordinator)
+        coord.api = api
+        coord._consumption_probed = {"m1"}
+        return coord
+
+    @staticmethod
+    def _meter() -> SimpleNamespace:
+        return SimpleNamespace(type="electricity", supply_point_id="sp-1", serial="m1")
+
+    @pytest.mark.asyncio
+    async def test_requests_window_without_group_by(self) -> None:
+        from custom_components.eon_next.const import LIVE_PAGE_SIZE
+        from custom_components.eon_next.statistics import live_window_start
+
+        api = SimpleNamespace(
+            async_get_consumption=AsyncMock(
+                return_value={"results": [{"interval_start": "x", "consumption": 1}]}
+            )
+        )
+        coord = self._coordinator(api)
+
+        await coord._fetch_consumption(self._meter())
+
+        kwargs = api.async_get_consumption.await_args.kwargs
+        assert kwargs["group_by"] is None
+        assert kwargs["page_size"] == LIVE_PAGE_SIZE
+        assert kwargs["period_from"] == live_window_start().strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    @pytest.mark.asyncio
+    async def test_coarse_intervals_are_not_treated_as_half_hourly(self) -> None:
+        """A response of daily-sized buckets must never reach the hourly splice."""
+        daily = {
+            "results": [
+                {
+                    "interval_start": "2026-10-24T00:00:00+01:00",
+                    "interval_end": "2026-10-25T00:00:00+01:00",
+                    "consumption": 30.0,
+                }
+            ]
+        }
+        api = SimpleNamespace(async_get_consumption=AsyncMock(return_value=daily))
+        coord = self._coordinator(api)
+
+        entries, granularity = await coord._fetch_consumption(self._meter())
+
+        assert granularity == "day"
+        assert entries == daily["results"]

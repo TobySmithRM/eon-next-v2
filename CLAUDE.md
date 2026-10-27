@@ -54,10 +54,10 @@ Commit sanity: `npm run commitlint:last` (Conventional Commits enforced via Husk
 
 Runtime flow: `__init__.py` sets up the config entry, stores runtime state on `entry.runtime_data` (`models.py`), and forwards to platforms (`sensor`, `binary_sensor`, `event`). `EonNextCoordinator` (`coordinator.py`) polls every 30 minutes; entities read from coordinator data keys - never call the API from entity properties.
 
-- `eonnext.py` - API client: email/password auth, refresh-token persistence in config entry data, GraphQL + REST calls. Auth failures requiring user action must raise `ConfigEntryAuthFailed` (triggers HA re-auth).
-- Consumption fetching has a deliberate fallback chain (do not change casually): REST half-hourly → REST daily. (The GraphQL `consumptionDataByMpxn` fallback was removed from the Kraken API.) Fallbacks are expected behavior, not exceptional logic.
+- `eonnext.py` - API client: per-account API-key auth (E.ON removed password logins from its token mutation), refresh-token persistence in config entry data, GraphQL + REST calls. All logged API text goes through `redact_secrets()` because E.ON echoes submitted variables back in validation errors. Auth failures requiring user action must raise `ConfigEntryAuthFailed` (triggers HA re-auth).
+- Consumption fetching has a deliberate fallback chain (do not change casually): REST half-hourly → REST daily. The half-hourly request must omit `group_by` (E.ON rejects `group_by=half_hour` with HTTP 400) and asks for the live window via `period_from`. (The GraphQL `consumptionDataByMpxn` fallback was removed from the Kraken API.) Fallbacks are expected behavior, not exceptional logic.
 - Coordinator data keys: meter serial for meters, `ev::<device_id>` for EV devices.
-- `statistics.py` / `backfill.py` - external statistics import for the Energy Dashboard; avoid duplicate or regressive imports.
+- `statistics.py` / `backfill.py` - external statistics import for the Energy Dashboard; avoid duplicate or regressive imports. The live path owns a rolling window (local midnight `LIVE_WINDOW_DAYS` ago → now) and splices it every poll; the backfill owns anything older, so the two never overlap.
 - `cost_tracker.py` / `services.py` - cost tracker entities with persistent storage, managed via `eon_next.*` services.
 - `panel.py` + `websocket.py` - register the sidebar panel and the WebSocket API consumed by the frontend. `frontend/src/api.generated.ts` is generated from the Python types (`npm run codegen`).
 - Frontend builds two committed bundles (`entrypoint.js` sidebar panel, `cards.js` Lovelace cards) so HACS installs need no build step.
