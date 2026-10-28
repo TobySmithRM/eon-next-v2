@@ -32,6 +32,7 @@ from .schemas import (
     VersionResponse,
 )
 from .statistics import statistic_id_for_meter
+from .tariff_helpers import split_consumption_by_peak
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -175,6 +176,7 @@ def _find_meter_info(
                     "type": data.get("type"),
                     "supply_point_id": data.get("supply_point_id"),
                     "api": coordinator.api,
+                    "meter_data": data,
                 }
     return None
 
@@ -219,10 +221,38 @@ async def ws_consumption_history(
 
     entries = _gap_fill(entries, days)
 
+    _apply_peak_split(meter_info.get("meter_data"), entries)
+
     connection.send_result(
         msg["id"],
         dataclasses.asdict(ConsumptionHistoryResponse(entries=entries)),
     )
+
+
+def _apply_peak_split(
+    meter_data: dict[str, Any] | None,
+    entries: list[ConsumptionHistoryEntry],
+) -> None:
+    """Overlay a peak/off-peak breakdown onto the daily history in place.
+
+    Uses the raw half-hourly consumption held in coordinator data (the live
+    window), so only recent days gain a split; older daily-only days are left
+    as a single usage bar.  No-op for flat-rate tariffs and gas.
+    """
+    if not meter_data:
+        return
+    split = split_consumption_by_peak(meter_data, meter_data.get("consumption") or [])
+    if not split:
+        return
+    for entry in entries:
+        day = split.get(entry.date)
+        if day is None:
+            continue
+        entry.split_available = True
+        entry.peak_kwh = day.peak_kwh
+        entry.offpeak_kwh = day.offpeak_kwh
+        entry.peak_cost = day.peak_cost
+        entry.offpeak_cost = day.offpeak_cost
 
 
 def _gap_fill(

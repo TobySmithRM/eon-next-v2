@@ -88,3 +88,23 @@
 .reading-unit {
   font-size: 13px;
 }
+
+/* --- Peak vs off-peak summary --- */
+.split-summary {
+  padding: 20px 24px;
+}
+
+.split-tile {
+  border-radius: var(--eon-radius-stat);
+  padding: 14px 16px;
+  border-left: 4px solid var(--eon-border);
+  background: var(--eon-surface-2, rgba(0, 0, 0, 0.02));
+}
+
+.split-tile--offpeak {
+  border-left-color: var(--eon-green-light);
+}
+
+.split-tile--peak {
+  border-left-color: var(--eon-elec);
+}

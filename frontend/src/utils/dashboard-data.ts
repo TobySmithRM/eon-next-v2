@@ -28,6 +28,16 @@ export interface StackedBar {
   standCost: number
   /** No reading received for this day yet - rendered as a shaded placeholder. */
   missing?: boolean
+  /**
+   * Time-of-use split: when set, the usage segment is drawn as off-peak
+   * (bottom) + peak (top) instead of a single block. Present only for TOU
+   * tariffs on days with half-hourly data; absent days render a single bar.
+   */
+  splitAvailable?: boolean
+  offpeakPct?: number
+  peakPct?: number
+  offpeakCost?: number
+  peakCost?: number
 }
 
 /** Rate window read from a `*_unit_rate` sensor's attributes. */
@@ -286,12 +296,24 @@ export function toStackedBars(
   const r = rate ?? 0
   const stand = standingPerDay ?? 0
 
-  const computed = entries.map((e) => ({
-    date: e.date,
-    usageCost: Math.max(0, e.consumption) * r,
-    standCost: stand,
-    missing: e.missing === true
-  }))
+  const computed = entries.map((e) => {
+    // Prefer the backend's time-of-use split (actual per-slot cost) over the
+    // flat-rate approximation when it is available for this day.
+    const split =
+      e.split_available === true && e.peak_cost != null && e.offpeak_cost != null
+    const offpeakCost = split ? Math.max(0, e.offpeak_cost as number) : 0
+    const peakCost = split ? Math.max(0, e.peak_cost as number) : 0
+    const usageCost = split ? offpeakCost + peakCost : Math.max(0, e.consumption) * r
+    return {
+      date: e.date,
+      usageCost,
+      offpeakCost,
+      peakCost,
+      split,
+      standCost: stand,
+      missing: e.missing === true
+    }
+  })
 
   const max = Math.max(0.0001, ...computed.map((c) => c.usageCost + c.standCost))
 
@@ -300,9 +322,49 @@ export function toStackedBars(
     standPct: (c.standCost / max) * 100,
     usageCost: c.usageCost,
     standCost: c.standCost,
+    splitAvailable: c.split,
+    offpeakPct: c.split ? (c.offpeakCost / max) * 100 : undefined,
+    peakPct: c.split ? (c.peakCost / max) * 100 : undefined,
+    offpeakCost: c.split ? c.offpeakCost : undefined,
+    peakCost: c.split ? c.peakCost : undefined,
     missing: c.missing,
     label: barLabel(c.date, i, entries.length, totalDays, locale)
   }))
+}
+
+/** Aggregated peak/off-peak usage and spend across the days that carry a split. */
+export interface SplitSummary {
+  days: number
+  offpeakKwh: number
+  peakKwh: number
+  offpeakCost: number
+  peakCost: number
+}
+
+/**
+ * Sum the peak/off-peak breakdown over every entry that has one. Returns null
+ * when no day carries a split (flat-rate tariff, gas, or no half-hourly data),
+ * so the caller can hide the summary entirely.
+ */
+export function summariseSplit(entries: ConsumptionHistoryEntry[]): SplitSummary | null {
+  const s: SplitSummary = {
+    days: 0,
+    offpeakKwh: 0,
+    peakKwh: 0,
+    offpeakCost: 0,
+    peakCost: 0
+  }
+  for (const e of entries) {
+    if (e.split_available !== true || e.peak_cost == null || e.offpeak_cost == null) {
+      continue
+    }
+    s.days += 1
+    s.offpeakKwh += Math.max(0, e.offpeak_kwh ?? 0)
+    s.peakKwh += Math.max(0, e.peak_kwh ?? 0)
+    s.offpeakCost += Math.max(0, e.offpeak_cost)
+    s.peakCost += Math.max(0, e.peak_cost)
+  }
+  return s.days > 0 ? s : null
 }
 
 /**

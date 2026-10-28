@@ -67,6 +67,15 @@ class ConsumptionHistoryEntry:
     # True for calendar days synthesised by gap-filling (no reading received
     # yet), so the frontend can shade them instead of drawing a real zero bar.
     missing: bool = False
+    # Time-of-use breakdown, populated only for TOU tariffs on days where
+    # genuine half-hourly data is available (currently the live window).
+    # ``split_available`` stays False for flat-rate tariffs, gas, and older
+    # days that only have a daily total - those render as a single usage bar.
+    split_available: bool = False
+    peak_kwh: float | None = None
+    offpeak_kwh: float | None = None
+    peak_cost: float | None = None
+    offpeak_cost: float | None = None
 
 
 @dataclass

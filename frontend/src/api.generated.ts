@@ -61,6 +61,11 @@ export interface ConsumptionHistoryEntry {
   date: string
   consumption: number
   missing: boolean
+  split_available: boolean
+  peak_kwh: number | null
+  offpeak_kwh: number | null
+  peak_cost: number | null
+  offpeak_cost: number | null
 }
 
 export interface ConsumptionHistoryResponse {

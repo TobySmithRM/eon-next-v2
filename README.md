@@ -47,7 +47,7 @@ After installation an **EON Next** entry appears in the Home Assistant sidebar (
 | Page | What it shows |
 |---|---|
 | **Overview** | Month‑to‑date spend, a projected month‑end total vs last month, a usage‑vs‑standing‑charge split bar, per‑fuel summary cards with 7‑day mini charts, your tariff at a glance, and meter health. |
-| **Electricity** / **Gas** | A stacked daily‑cost chart (usage on top of the standing charge) with a 7d / 30d / 90d / 1y range toggle, headline stat cards (this month, yesterday, unit rate, standing charge), and the latest meter reading. |
+| **Electricity** / **Gas** | A stacked daily‑cost chart (usage on top of the standing charge) with a 7d / 30d / 90d / 1y range toggle, headline stat cards (this month, yesterday, unit rate, standing charge), and the latest meter reading. On time‑of‑use tariffs, recent days split the usage segment into **off‑peak vs peak** and a summary shows off‑peak vs peak kWh and spend. |
 | **Tariff & rates** | Current / previous / next unit rates and standing charges, plus today's rate shape - flat, or shaded off‑peak windows for time‑of‑use tariffs. |
 | **EV charging** | Smart‑charging status, the next scheduled charges, and a half‑hourly schedule strip. |
 | **Settings** | Where account, refresh‑interval and backfill controls live (managed from the integration options), plus historical‑backfill status. |
@@ -55,7 +55,7 @@ After installation an **EON Next** entry appears in the Home Assistant sidebar (
 Notes:
 
 - The panel uses data already fetched by the integration's coordinator - **no extra API calls**.
-- Consumption cost bars apply **today's** unit rate to historical usage (an approximation, surfaced as a footnote in the app), since the API exposes only current rates; standing‑charge segments use the fixed per‑day charge.
+- Consumption cost bars apply **today's** unit rates to historical usage (an approximation, surfaced as a footnote in the app), since the API exposes only current rates; standing‑charge segments use the fixed per‑day charge. For time‑of‑use tariffs, days with half‑hourly data (the recent live window) are split into off‑peak and peak using the current rate windows; older days that only have a daily total render as a single usage segment.
 - "Month to date" is a running total computed from daily consumption history; charts offer 7‑day, 30‑day, 90‑day and 1‑year ranges with adaptive labels.
 - Tapping the brand logo opens the Home Assistant sidebar, so you can always navigate away from the dashboard - including on phones and the iOS/Android Companion apps, where the panel fills the screen.
 - The panel is enabled by default. To hide it, go to **Settings → Devices & Services → Eon Next → Configure** and disable "Show EON Next dashboard in sidebar".

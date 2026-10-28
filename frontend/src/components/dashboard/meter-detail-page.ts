@@ -7,6 +7,7 @@ import type { HomeAssistant, MeterSummary } from '../../types'
 import {
   FUEL,
   type FuelKind,
+  type SplitSummary,
   type StackedBar,
   computeMonthCost,
   formatPence,
@@ -14,6 +15,7 @@ import {
   formatShortDate,
   isTimeOfUse,
   normaliseType,
+  summariseSplit,
   toMonthlyStackedBars,
   toStackedBars
 } from '../../utils/dashboard-data'
@@ -50,6 +52,7 @@ class EonMeterDetailPage extends LitElement {
   private _memoStanding: number | null | undefined = undefined
   private _memoBars: StackedBar[] = []
   private _memoMonthToDate = 0
+  private _memoSplit: SplitSummary | null = null
 
   get kind(): FuelKind {
     return normaliseType(this.meter?.type ?? null)
@@ -119,6 +122,9 @@ class EonMeterDetailPage extends LitElement {
       this._days >= 365
         ? toMonthlyStackedBars(this._history, rate, standing, locale)
         : toStackedBars(recent, rate, standing, this._days, locale)
+    // The split only covers days with half-hourly data (the live window), so
+    // summarise across the full fetch rather than the selected range.
+    this._memoSplit = summariseSplit(this._history)
     this._memoMonthToDate = computeMonthCost(
       this._history,
       rate,
@@ -141,7 +147,8 @@ class EonMeterDetailPage extends LitElement {
       <div class="page">
         ${this._renderHeader(fuel)}
         ${this._renderChartCard(kind, this._memoBars, fuel, standingPence)}
-        ${this._renderStats(standingPence)} ${this._renderReadingStrip(kind)}
+        ${this._renderSplitSummary()} ${this._renderStats(standingPence)}
+        ${this._renderReadingStrip(kind)}
       </div>
     `
   }
@@ -191,6 +198,7 @@ class EonMeterDetailPage extends LitElement {
                 .bars=${bars}
                 usageColor=${fuel.usageColor}
                 standColor=${fuel.standColor}
+                offpeakColor="var(--eon-green-light)"
                 .height=${240}
               ></eon-stacked-bar-chart>`
             : html`<div class="placeholder">
@@ -198,10 +206,34 @@ class EonMeterDetailPage extends LitElement {
               </div>`
         }
         <div class="legend chart-legend">
-          <span class="legend-item">
-            <span class="legend-swatch" style="background:${fuel.usageColor}"></span
-            >Energy used
-          </span>
+          ${
+            this._memoSplit
+              ? html`
+                  <span class="legend-item">
+                    <span
+                      class="legend-swatch"
+                      style="background:var(--eon-green-light)"
+                    ></span>
+                    Off-peak
+                  </span>
+                  <span class="legend-item">
+                    <span
+                      class="legend-swatch"
+                      style="background:${fuel.usageColor}"
+                    ></span>
+                    Peak
+                  </span>
+                `
+              : html`
+                  <span class="legend-item">
+                    <span
+                      class="legend-swatch"
+                      style="background:${fuel.usageColor}"
+                    ></span
+                    >Energy used
+                  </span>
+                `
+          }
           <span class="legend-item">
             <span class="legend-swatch" style="background:${fuel.standColor}"></span>
             Standing charge (${standingPence} / day, fixed)
@@ -217,8 +249,45 @@ class EonMeterDetailPage extends LitElement {
             : nothing
         }
         <div class="footnote faint">
-          Costs use today's unit rate applied to historical usage - an approximation, as
-          no historical rate series is available.
+          ${
+            this._memoSplit
+              ? html`Recent days are split into peak and off-peak from half-hourly usage. `
+              : nothing
+          }Costs
+          use today's unit rates applied to historical usage - an approximation, as no
+          historical rate series is available.
+        </div>
+      </div>
+    `
+  }
+
+  /** Peak vs off-peak usage and spend, over the days that have a split. */
+  private _renderSplitSummary() {
+    const s = this._memoSplit
+    if (!s) return nothing
+    const totalKwh = s.offpeakKwh + s.peakKwh
+    const offpeakShare = totalKwh > 0 ? Math.round((s.offpeakKwh / totalKwh) * 100) : 0
+    return html`
+      <div class="card split-summary">
+        <div class="chart-title-row">
+          <div class="chart-title">Peak vs off-peak</div>
+          <div class="faint chart-range">
+            Last ${s.days} day${s.days === 1 ? '' : 's'} with half-hourly data
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="split-tile split-tile--offpeak">
+            <div class="stat-label">Off-peak</div>
+            <div class="stat-value">${formatPounds(s.offpeakCost)}</div>
+            <div class="stat-sub">${s.offpeakKwh.toFixed(1)} kWh · ${offpeakShare}%</div>
+          </div>
+          <div class="split-tile split-tile--peak">
+            <div class="stat-label">Peak</div>
+            <div class="stat-value">${formatPounds(s.peakCost)}</div>
+            <div class="stat-sub">
+              ${s.peakKwh.toFixed(1)} kWh · ${100 - offpeakShare}%
+            </div>
+          </div>
         </div>
       </div>
     `

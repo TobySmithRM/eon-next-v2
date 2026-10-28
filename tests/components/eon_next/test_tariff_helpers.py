@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 
 from custom_components.eon_next.tariff_helpers import (
+    PeakSplit,
     build_day_rates,
     cost_consumption_entries,
     get_current_rate,
@@ -16,7 +17,9 @@ from custom_components.eon_next.tariff_helpers import (
     get_off_peak_metadata,
     get_previous_rate,
     is_off_peak,
+    off_peak_for_timestamp,
     rate_for_timestamp,
+    split_consumption_by_peak,
 )
 
 # Dynamic reference time: today at 03:00 UTC - inside a typical off-peak
@@ -464,3 +467,66 @@ class TestCostConsumptionEntries:
             {"interval_start": _ts(3), "consumption": 1.0},
         ]
         assert cost_consumption_entries(data, entries) == pytest.approx(0.20)
+
+
+def _hh(hour: int, kwh: float, date_iso: str | None = None) -> dict[str, Any]:
+    """A half-hourly consumption entry (30-min interval) at *hour*:00."""
+    d = date_iso or _REF_DATE_ISO
+    return {
+        "interval_start": _ts(hour, d),
+        "interval_end": f"{d}T{hour:02d}:30:00+00:00",
+        "consumption": kwh,
+    }
+
+
+class TestOffPeakForTimestamp:
+    def test_flat_rate_returns_none(self) -> None:
+        assert off_peak_for_timestamp(_flat_meter_data(), _REF_DATE) is None
+
+    def test_schedule_off_peak_window(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        assert off_peak_for_timestamp(data, _REF_DATE.replace(hour=3)) is True
+
+    def test_schedule_peak_window(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        assert off_peak_for_timestamp(data, _REF_DATE.replace(hour=6)) is False
+
+
+class TestSplitConsumptionByPeak:
+    def test_splits_kwh_and_cost_by_window(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        entries = [_hh(3, 1.0), _hh(6, 2.0)]  # off-peak 7p, peak 25p
+        result = split_consumption_by_peak(data, entries)
+        assert result == {
+            _REF_DATE_ISO: PeakSplit(
+                peak_kwh=2.0,
+                offpeak_kwh=1.0,
+                peak_cost=pytest.approx(0.50),
+                offpeak_cost=pytest.approx(0.07),
+            )
+        }
+
+    def test_flat_rate_returns_none(self) -> None:
+        assert split_consumption_by_peak(_flat_meter_data(0.20), [_hh(3, 1.0)]) is None
+
+    def test_skips_coarse_daily_buckets(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        next_day_iso = (_REF_DATE + timedelta(days=1)).date().isoformat()
+        # A daily bucket (24h interval) must not be mislabelled as one slot.
+        daily = {
+            "interval_start": _ts(0),
+            "interval_end": _ts(0, next_day_iso),
+            "consumption": 12.0,
+        }
+        assert split_consumption_by_peak(data, [daily]) is None
+
+    def test_groups_by_local_day(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        entries = [_hh(3, 1.0), _hh(3, 2.0, _PREV_DATE_ISO)]
+        result = split_consumption_by_peak(data, entries)
+        assert result is not None
+        assert set(result) == {_REF_DATE_ISO, _PREV_DATE_ISO}
+        assert result[_PREV_DATE_ISO].offpeak_kwh == 2.0
+
+    def test_returns_none_when_nothing_splittable(self) -> None:
+        assert split_consumption_by_peak(_tou_meter_data_with_schedule(), []) is None

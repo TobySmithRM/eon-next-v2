@@ -17,6 +17,8 @@ class EonStackedBarChart extends LitElement {
   @property({ type: Array }) bars: StackedBar[] = []
   @property() usageColor = 'var(--eon-elec)'
   @property() standColor = 'var(--eon-elec-standing)'
+  /** Off-peak usage colour, used only for bars that carry a time-of-use split. */
+  @property() offpeakColor = 'var(--eon-green-light)'
   /** Chart body height in px. */
   @property({ type: Number }) height = 240
   /** Max bar width in px (keeps sparse series from ballooning). */
@@ -64,16 +66,42 @@ class EonStackedBarChart extends LitElement {
         </div>
       `
     }
-    const title = `${formatPounds(bar.usageCost + bar.standCost)} · usage ${formatPounds(
-      bar.usageCost
-    )} + standing ${formatPounds(bar.standCost)}`
-    return html`
-      <div class="col" style="max-width:${this.maxBarWidth}px" title=${title}>
-        <div class="stack">
+    const split =
+      bar.splitAvailable === true &&
+      bar.peakPct !== undefined &&
+      bar.offpeakPct !== undefined
+    const title = split
+      ? `${formatPounds(bar.usageCost + bar.standCost)} · peak ${formatPounds(
+          bar.peakCost ?? 0
+        )} + off-peak ${formatPounds(bar.offpeakCost ?? 0)} + standing ${formatPounds(
+          bar.standCost
+        )}`
+      : `${formatPounds(bar.usageCost + bar.standCost)} · usage ${formatPounds(
+          bar.usageCost
+        )} + standing ${formatPounds(bar.standCost)}`
+    // Stack order top→bottom: peak usage, off-peak usage, then the fixed
+    // standing-charge floor. Non-split bars draw a single usage block.
+    const usage = split
+      ? html`
+          <div
+            class="seg seg--usage"
+            style="height:${bar.peakPct}%;background:${this.usageColor}"
+          ></div>
+          <div
+            class="seg seg--offpeak"
+            style="height:${bar.offpeakPct}%;background:${this.offpeakColor}"
+          ></div>
+        `
+      : html`
           <div
             class="seg seg--usage"
             style="height:${bar.usagePct}%;background:${this.usageColor}"
           ></div>
+        `
+    return html`
+      <div class="col" style="max-width:${this.maxBarWidth}px" title=${title}>
+        <div class="stack">
+          ${usage}
           <div
             class="seg seg--stand"
             style="height:${bar.standPct}%;background:${this.standColor}"

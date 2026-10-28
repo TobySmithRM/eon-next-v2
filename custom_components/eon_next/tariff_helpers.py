@@ -27,6 +27,16 @@ class RateInfo:
     is_off_peak: bool = False
 
 
+@dataclass(slots=True)
+class PeakSplit:
+    """A day's consumption split into peak and off-peak kWh and cost (GBP)."""
+
+    peak_kwh: float
+    offpeak_kwh: float
+    peak_cost: float
+    offpeak_cost: float
+
+
 # ── Internal helpers ───────────────────────────────────────────
 
 
@@ -434,6 +444,118 @@ def rate_for_timestamp(
 
     # Last resort: the schedule mean.
     return float(unit_rate)
+
+
+def off_peak_for_timestamp(
+    meter_data: dict[str, Any], when_utc: datetime
+) -> bool | None:
+    """Return whether *when_utc* falls in an off-peak period.
+
+    Mirrors :func:`rate_for_timestamp`'s resolution order (schedule window,
+    then tariff pattern) so a slot's cost and its peak/off-peak label always
+    agree.  Returns ``None`` for flat-rate tariffs or when it cannot be
+    classified - callers treat ``None`` as "no split available".
+    """
+    if not meter_data.get("tariff_is_tou", False):
+        return None
+
+    schedule = meter_data.get("tariff_rates_schedule") or []
+    tariff_code = meter_data.get("tariff_code")
+
+    # Strategy 1: a schedule window that actually covers this instant.
+    if schedule and _schedule_has_time_windows(schedule):
+        window = _find_current_window(schedule, when_utc)
+        if window is not None:
+            try:
+                val: float | None = float(window["value"])
+            except (TypeError, ValueError, KeyError):
+                val = None
+            result = _is_off_peak_rate(val, schedule)
+            if result is not None:
+                return result
+
+    # Strategy 2: pattern by time-of-day (the schedule rarely spans past days).
+    if schedule:
+        distinct = _distinct_rates_pence(schedule)
+        if len(distinct) >= 2:
+            pattern = get_tariff_pattern(tariff_code)
+            if pattern and pattern.windows:
+                local_time = dt_util.as_local(when_utc).time()
+                return _time_in_off_peak_windows(local_time, pattern.windows)
+
+    return None
+
+
+# Consumption entries coarser than this are daily/hourly buckets, not genuine
+# half-hourly slots, so they cannot be split by time-of-use window.
+_MAX_SPLITTABLE_INTERVAL = timedelta(minutes=31)
+
+
+def split_consumption_by_peak(
+    meter_data: dict[str, Any],
+    entries: list[dict[str, Any]],
+) -> dict[str, PeakSplit] | None:
+    """Split half-hourly consumption into per-day peak/off-peak kWh and cost.
+
+    Groups ``entries`` (``interval_start`` + ``consumption`` kWh) by local
+    calendar day and, within each day, apportions usage and cost between peak
+    and off-peak using the *current* tariff windows - consistent with the
+    dashboard pricing historical usage at today's rates.  Entries coarser than
+    half-hourly (daily/hourly buckets, detected via ``interval_end``) are
+    skipped so they are never mislabelled as a single off-peak slot.
+
+    Returns ``{ISO-date: PeakSplit}`` for time-of-use tariffs, or ``None`` for
+    flat-rate tariffs / when nothing could be split.
+    """
+    if not meter_data.get("tariff_is_tou", False):
+        return None
+
+    totals: dict[str, list[float]] = {}
+    for entry in entries:
+        interval_start = entry.get("interval_start")
+        consumption = entry.get("consumption")
+        if interval_start is None or consumption is None:
+            continue
+        when = _parse_dt(str(interval_start))
+        if when is None:
+            continue
+        interval_end = _parse_dt(str(entry.get("interval_end") or ""))
+        if interval_end is not None and (
+            interval_end - when
+        ) > _MAX_SPLITTABLE_INTERVAL:
+            continue
+        try:
+            kwh = float(consumption)
+        except (TypeError, ValueError):
+            continue
+        when_utc = dt_util.as_utc(when)
+        rate = rate_for_timestamp(meter_data, when_utc)
+        off_peak = off_peak_for_timestamp(meter_data, when_utc)
+        if rate is None or off_peak is None:
+            continue
+        day = dt_util.as_local(when_utc).date().isoformat()
+        # [peak_kwh, offpeak_kwh, peak_cost, offpeak_cost]
+        acc = totals.setdefault(day, [0.0, 0.0, 0.0, 0.0])
+        cost = kwh * rate
+        if off_peak:
+            acc[1] += kwh
+            acc[3] += cost
+        else:
+            acc[0] += kwh
+            acc[2] += cost
+
+    if not totals:
+        return None
+
+    return {
+        day: PeakSplit(
+            peak_kwh=round(acc[0], 3),
+            offpeak_kwh=round(acc[1], 3),
+            peak_cost=round(acc[2], 4),
+            offpeak_cost=round(acc[3], 4),
+        )
+        for day, acc in totals.items()
+    }
 
 
 def cost_consumption_entries(

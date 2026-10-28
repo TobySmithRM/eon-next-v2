@@ -4,6 +4,14 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.1.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.0.0...v2.1.0) (2026-10-28)
+
+
+### Features
+
+* **dashboard:** split the electricity daily-cost chart into off-peak vs peak usage for time-of-use tariffs, with an off-peak-vs-peak kWh and spend summary. Applies to recent days that have half-hourly data; older daily-only days render as a single usage segment. Costs use the current rate windows (consistent with the existing current-rates basis).
+* **websocket:** `consumption_history` entries now carry an optional peak/off-peak breakdown (`split_available`, `peak_kwh`, `offpeak_kwh`, `peak_cost`, `offpeak_cost`).
+
 ## [2.0.0](https://github.com/TobySmithRM/eon-next-v2/compare/v1.10.0...v2.0.0) (2026-10-27)
 
 
