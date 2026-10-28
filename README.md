@@ -4,16 +4,15 @@
 
 A custom integration that brings your E.ON Next electricity, gas and EV‑charging data into Home Assistant - with a purpose‑built **dashboard app** in the sidebar, Energy Dashboard integration, tariff‑aware sensors, and Lovelace cards.
 
+Forked from https://github.com/monsagri/eon-next-v2
 <br clear="left" />
 
-[![Validate with hassfest](https://github.com/monsagri/eon-next-v2/actions/workflows/hassfest.yml/badge.svg)](https://github.com/monsagri/eon-next-v2/actions/workflows/hassfest.yml)
-[![HACS Validate](https://github.com/monsagri/eon-next-v2/actions/workflows/validate.yml/badge.svg)](https://github.com/monsagri/eon-next-v2/actions/workflows/validate.yml)
+[![Validate with hassfest](https://github.com/TobySmithRM/eon-next-v2/actions/workflows/hassfest.yml/badge.svg)](https://github.com/TobySmithRM/eon-next-v2/actions/workflows/hassfest.yml)
+[![HACS Validate](https://github.com/TobySmithRM/eon-next-v2/actions/workflows/validate.yml/badge.svg)](https://github.com/TobySmithRM/eon-next-v2/actions/workflows/validate.yml)
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
-![downloads](https://img.shields.io/github/downloads/monsagri/eon-next-v2/total.svg)
-![latest downloads](https://img.shields.io/github/downloads/monsagri/eon-next-v2/latest/total.svg)
+![downloads](https://img.shields.io/github/downloads/TobySmithRM/eon-next-v2/total.svg)
+![latest downloads](https://img.shields.io/github/downloads/TobySmithRM/eon-next-v2/latest/total.svg)
 
-[![Sponsor](https://img.shields.io/badge/Sponsor-%E2%9D%A4-ea4aaa?logo=githubsponsors&logoColor=white)](https://github.com/sponsors/monsagri)
-[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-ffdd00?logo=buymeacoffee&logoColor=black)](https://buymeacoffee.com/monsagri)
 
 ---
 
