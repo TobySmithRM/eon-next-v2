@@ -13,8 +13,40 @@
  * approximation). Callers surface a footnote where that matters.
  */
 
-import type { ConsumptionHistoryEntry } from '../api'
+import type { BackfillStatusResponse, ConsumptionHistoryEntry } from '../api'
 import type { DashboardSummary, HassEntity, HomeAssistant, MeterSummary } from '../types'
+
+/** Backfill progress weighted by days across all meters (not meter count). */
+export interface BackfillProgress {
+  doneDays: number
+  totalDays: number
+  /** Day-weighted percent (0-100), or null when it can't be determined. */
+  pct: number | null
+}
+
+/**
+ * Backfill progress as `sum(days_completed) / sum(days_completed + days_remaining)`
+ * across every meter, so two meters at 12/40 and 10/40 days read as 22/80 = 28%
+ * rather than "0 of 2 meters complete". Falls back to the meter-count ratio, then
+ * null, when per-meter day counts are unavailable.
+ */
+export function backfillProgress(
+  status: BackfillStatusResponse | null | undefined
+): BackfillProgress {
+  let doneDays = 0
+  let totalDays = 0
+  for (const m of status?.meters ?? []) {
+    doneDays += Math.max(0, m.days_completed ?? 0)
+    totalDays += Math.max(0, (m.days_completed ?? 0) + (m.days_remaining ?? 0))
+  }
+  let pct: number | null = null
+  if (totalDays > 0) {
+    pct = Math.round((doneDays / totalDays) * 100)
+  } else if (status && status.total_meters > 0) {
+    pct = Math.round((status.completed_meters / status.total_meters) * 100)
+  }
+  return { doneDays, totalDays, pct }
+}
 
 export type FuelKind = 'electricity' | 'gas'
 

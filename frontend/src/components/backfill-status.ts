@@ -2,6 +2,7 @@ import { LitElement, html, nothing } from 'lit'
 import { property } from 'lit/decorators.js'
 import { getBackfillStatus } from '../api'
 import { WsDataController } from '../controllers/ws-data-controller'
+import { backfillProgress } from '../utils/dashboard-data'
 import type { HomeAssistant, BackfillStatusResponse } from '../types'
 
 import sharedStyles from '../styles/shared.css'
@@ -60,10 +61,9 @@ class EonBackfillStatus extends LitElement {
       `
     }
 
-    const pct =
-      status.total_meters > 0
-        ? Math.round((status.completed_meters / status.total_meters) * 100)
-        : 0
+    // Day-weighted across meters so progress reflects actual days imported.
+    const progress = backfillProgress(status)
+    const pct = progress.pct ?? 0
 
     return html`
       <div class="backfill-header">
@@ -75,7 +75,7 @@ class EonBackfillStatus extends LitElement {
       <div class="status-row">
         <span class="label">Progress</span>
         <span class="value"
-          >${status.completed_meters} / ${status.total_meters} meters (${pct}%)</span
+          >${progress.doneDays} / ${progress.totalDays} days (${pct}%)</span
         >
       </div>
 

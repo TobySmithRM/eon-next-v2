@@ -9,6 +9,7 @@ import {
   type FuelKind,
   type MonthSplit,
   type StackedBar,
+  backfillProgress,
   computeMonthCost,
   computeMonthSplit,
   findMeter,
@@ -354,12 +355,8 @@ class EonOverviewPage extends LitElement {
   private _renderHealthCard(meter: MeterSummary | null) {
     const locale = this.hass?.language ?? 'en'
     const backfill = this._backfill.data
-    const pct =
-      backfill && backfill.total_meters > 0
-        ? Math.round((backfill.completed_meters / backfill.total_meters) * 100)
-        : backfill?.enabled === false
-          ? 0
-          : 100
+    // Day-weighted across meters, so two part-done meters don't both read 0%.
+    const pct = backfillProgress(backfill).pct ?? (backfill?.enabled === false ? 0 : 100)
     const meterCount = this.summary?.meters.length ?? 0
     const reading =
       meter?.latest_reading != null
