@@ -70,6 +70,61 @@ def _find_current_window(
     return None
 
 
+def _time_in_tod_window(t: time, start: time, end: time) -> bool:
+    """Whether local time *t* falls in ``[start, end)``, allowing midnight wrap."""
+    if start <= end:
+        return start <= t < end
+    return t >= start or t < end
+
+
+def _schedule_day_profile(
+    schedule: list[dict[str, Any]],
+) -> list[tuple[time, time, float]]:
+    """Collapse the schedule into a recurring local time-of-day rate shape.
+
+    Each schedule window (``validFrom``/``validTo``) is mapped to its local
+    time-of-day span; identical spans across different days are collapsed,
+    keeping the most recent rate.  This lets a past slot be priced/classified
+    by time of day even once the live schedule (which only returns a recent
+    window of rates) no longer literally spans that date.  Returns ``[]`` when
+    no usable windows exist.
+    """
+    windows: dict[tuple[time, time], tuple[datetime, float]] = {}
+    for entry in schedule:
+        vf = _parse_dt(entry.get("validFrom"))
+        vt = _parse_dt(entry.get("validTo"))
+        if vf is None or vt is None:
+            continue
+        try:
+            value = float(entry["value"])
+        except (TypeError, ValueError, KeyError):
+            continue
+        start_t = dt_util.as_local(vf).time()
+        end_t = dt_util.as_local(vt).time()
+        if start_t == end_t:
+            # Zero-length or full-day window carries no time-of-day shape.
+            continue
+        key = (start_t, end_t)
+        prev = windows.get(key)
+        if prev is None or vf > prev[0]:
+            windows[key] = (vf, value)
+    return [(start, end, rate) for (start, end), (_vf, rate) in windows.items()]
+
+
+def _profile_rate_pence(
+    schedule: list[dict[str, Any]], when_utc: datetime
+) -> float | None:
+    """Rate (pence) for *when_utc* from the recurring time-of-day profile."""
+    profile = _schedule_day_profile(schedule)
+    if not profile:
+        return None
+    local_t = dt_util.as_local(when_utc).time()
+    for start_t, end_t, rate in profile:
+        if _time_in_tod_window(local_t, start_t, end_t):
+            return rate
+    return None
+
+
 def _distinct_rates_pence(schedule: list[dict[str, Any]]) -> list[float]:
     vals: set[float] = set()
     for e in schedule:
@@ -431,7 +486,16 @@ def rate_for_timestamp(
             except (TypeError, ValueError, KeyError):
                 pass
 
-    # Strategy 2: pattern by time-of-day (the schedule rarely spans past days).
+    # Strategy 2: a recurring time-of-day profile from the schedule.  The live
+    # schedule only returns a recent window of rates, so once a day has rolled
+    # into the past no window covers it - but its repeating daily shape still
+    # prices it correctly.
+    if schedule:
+        profile_rate = _profile_rate_pence(schedule, when_utc)
+        if profile_rate is not None:
+            return _pence_to_pounds(profile_rate)
+
+    # Strategy 3: pattern by time-of-day (for tariffs with a known structure).
     if schedule:
         distinct = _distinct_rates_pence(schedule)
         if len(distinct) >= 2:
@@ -474,7 +538,16 @@ def off_peak_for_timestamp(
             if result is not None:
                 return result
 
-    # Strategy 2: pattern by time-of-day (the schedule rarely spans past days).
+    # Strategy 2: a recurring time-of-day profile from the schedule, so a past
+    # day still classifies once the live schedule has rolled past it.
+    if schedule:
+        profile_rate = _profile_rate_pence(schedule, when_utc)
+        if profile_rate is not None:
+            result = _is_off_peak_rate(profile_rate, schedule)
+            if result is not None:
+                return result
+
+    # Strategy 3: pattern by time-of-day (for tariffs with a known structure).
     if schedule:
         distinct = _distinct_rates_pence(schedule)
         if len(distinct) >= 2:

@@ -2,12 +2,13 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from typing import Any
 from unittest.mock import patch
 
 import pytest
 
+from custom_components.eon_next.tariff_patterns import get_tariff_pattern
 from custom_components.eon_next.tariff_helpers import (
     PeakSplit,
     build_day_rates,
@@ -530,3 +531,65 @@ class TestSplitConsumptionByPeak:
 
     def test_returns_none_when_nothing_splittable(self) -> None:
         assert split_consumption_by_peak(_tou_meter_data_with_schedule(), []) is None
+
+
+# A TOU tariff whose code matches no pattern, with a schedule that only spans
+# "today" (00:00-06:00 cheap, 06:00-23:00 peak) - mirrors the live schedule
+# that rolls forward each day. A day outside that span must still classify via
+# the recurring time-of-day profile.
+def _tou_meter_no_pattern_today_only() -> dict[str, Any]:
+    return {
+        "tariff_unit_rate": 0.16,
+        "tariff_is_tou": True,
+        "tariff_code": "E-TOU-MYSTERY-01",
+        "tariff_rates_schedule": [
+            _make_schedule_entry(7.0, _ts(0), _ts(6)),
+            _make_schedule_entry(25.0, _ts(6), _ts(23)),
+        ],
+    }
+
+
+_FUTURE = _REF_DATE + timedelta(days=12)
+_FUTURE_ISO = _FUTURE.date().isoformat()
+
+
+class TestTimeOfDayProfile:
+    """A day the live schedule no longer spans still classifies by time of day."""
+
+    def test_off_peak_from_profile_out_of_schedule_range(self) -> None:
+        data = _tou_meter_no_pattern_today_only()
+        assert off_peak_for_timestamp(data, _FUTURE.replace(hour=3)) is True
+        assert off_peak_for_timestamp(data, _FUTURE.replace(hour=9)) is False
+
+    def test_rate_from_profile_out_of_schedule_range(self) -> None:
+        data = _tou_meter_no_pattern_today_only()
+        assert rate_for_timestamp(data, _FUTURE.replace(hour=3)) == pytest.approx(0.07)
+        assert rate_for_timestamp(data, _FUTURE.replace(hour=9)) == pytest.approx(0.25)
+
+    def test_split_survives_schedule_rollover(self) -> None:
+        data = _tou_meter_no_pattern_today_only()
+        entries = [_hh(3, 1.0, _FUTURE_ISO), _hh(9, 2.0, _FUTURE_ISO)]
+        assert split_consumption_by_peak(data, entries) == {
+            _FUTURE_ISO: PeakSplit(
+                peak_kwh=2.0,
+                offpeak_kwh=1.0,
+                peak_cost=pytest.approx(0.50),
+                offpeak_cost=pytest.approx(0.07),
+            )
+        }
+
+
+class TestTariffPatternMatching:
+    def test_next_drive_fixed_underscore_code_matches_6am(self) -> None:
+        pattern = get_tariff_pattern("E-TOU-NEXT_DRIVE_FIXED_V24-H")
+        assert pattern is not None
+        assert pattern.product_prefix == "NEXT-DRIVE-FIXED"
+        assert pattern.windows[0].end_time == time(6, 0)
+
+    def test_plain_next_drive_still_7am(self) -> None:
+        pattern = get_tariff_pattern("E-1R-NEXT-DRIVE-01")
+        assert pattern is not None
+        assert pattern.windows[0].end_time == time(7, 0)
+
+    def test_unknown_code_has_no_pattern(self) -> None:
+        assert get_tariff_pattern("E-TOU-MYSTERY-01") is None

@@ -27,6 +27,15 @@ class TariffPattern:
 
 
 KNOWN_TARIFF_PATTERNS: list[TariffPattern] = [
+    # More specific products must come before NEXT-DRIVE: the fixed variant
+    # (e.g. E-TOU-NEXT_DRIVE_FIXED_V24-H) is off-peak 00:00-06:00, an hour
+    # shorter than plain NEXT-DRIVE, so it must match first.
+    TariffPattern(
+        product_prefix="NEXT-DRIVE-FIXED",
+        windows=[
+            TariffRateWindow("off_peak", time(0, 0), time(6, 0)),
+        ],
+    ),
     TariffPattern(
         product_prefix="NEXT-DRIVE",
         windows=[
@@ -57,16 +66,19 @@ def _segments_contain(haystack: list[str], needle: list[str]) -> bool:
 def get_tariff_pattern(tariff_code: str | None) -> TariffPattern | None:
     """Match a tariff code to a known pattern, or None for unknown/flat-rate.
 
-    Tariff codes are hyphen-delimited (e.g. ``E-1R-NEXT-DRIVE-...``).  The
-    product prefix is matched against whole code segments rather than as a
-    free substring, so an unrelated code that merely contains the prefix text
-    (``NEXTDRIVER``) is not misclassified.  A future variant that shares the
-    exact product segments (``NEXT-DRIVE-V2``) still matches; the debug log
-    records which pattern was applied so unexpected inheritance is visible.
+    Tariff codes are hyphen-delimited (e.g. ``E-1R-NEXT-DRIVE-...``).  Some
+    products instead join the product words with underscores
+    (``E-TOU-NEXT_DRIVE_FIXED_V24-H``), so underscores are normalised to
+    hyphens before splitting.  The product prefix is matched against whole code
+    segments rather than as a free substring, so an unrelated code that merely
+    contains the prefix text (``NEXTDRIVER``) is not misclassified.  A future
+    variant that shares the exact product segments (``NEXT-DRIVE-V2``) still
+    matches; the debug log records which pattern was applied so unexpected
+    inheritance is visible.
     """
     if not tariff_code:
         return None
-    code_segments = tariff_code.upper().split("-")
+    code_segments = tariff_code.upper().replace("_", "-").split("-")
     for pattern in KNOWN_TARIFF_PATTERNS:
         prefix_segments = pattern.product_prefix.upper().split("-")
         if _segments_contain(code_segments, prefix_segments):
