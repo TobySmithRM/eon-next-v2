@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.2.1](https://github.com/TobySmithRM/eon-next-v2/compare/v2.2.0...v2.2.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* **dashboard:** decorate every day with hourly data, not just the live window ([82de400](https://github.com/TobySmithRM/eon-next-v2/commit/82de400dfcc29e6bb07376f51066afc5b5c971eb))
+
 ## [2.2.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.1.0...v2.2.0) (2026-10-29)
 
 
