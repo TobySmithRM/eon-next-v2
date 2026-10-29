@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.2.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.1.0...v2.2.0) (2026-10-29)
+
+
+### Features
+
+* **dashboard:** weight backfill progress by days across meters ([e338c00](https://github.com/TobySmithRM/eon-next-v2/commit/e338c0003f1ecfd15da75265524b2c8d1c2c6a69))
+
+
+### Bug Fixes
+
+* **tariff:** keep peak/off-peak split stable across day rollover ([f023774](https://github.com/TobySmithRM/eon-next-v2/commit/f02377404b543ec842b25ee8d66fbbf195291994))
+
 ## [2.1.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.0.0...v2.1.0) (2026-10-28)
 
 
