@@ -21,6 +21,7 @@ from custom_components.eon_next.tariff_helpers import (
     off_peak_for_timestamp,
     rate_for_timestamp,
     split_consumption_by_peak,
+    split_hours_by_peak,
 )
 
 # Dynamic reference time: today at 03:00 UTC - inside a typical off-peak
@@ -577,6 +578,33 @@ class TestTimeOfDayProfile:
                 offpeak_cost=pytest.approx(0.07),
             )
         }
+
+
+class TestSplitHoursByPeak:
+    def test_splits_hourly_rows_by_window(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        # 03:00 off-peak (7p), 06:00 peak (25p); two rows => splittable day.
+        hours = [
+            (_REF_DATE.replace(hour=3), 1.0),
+            (_REF_DATE.replace(hour=6), 2.0),
+        ]
+        assert split_hours_by_peak(data, hours) == {
+            _REF_DATE_ISO: PeakSplit(
+                peak_kwh=2.0,
+                offpeak_kwh=1.0,
+                peak_cost=pytest.approx(0.50),
+                offpeak_cost=pytest.approx(0.07),
+            )
+        }
+
+    def test_single_hour_day_skipped_as_daily_bucket(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        hours = [(_REF_DATE.replace(hour=3), 12.0)]
+        assert split_hours_by_peak(data, hours) is None
+
+    def test_flat_rate_returns_none(self) -> None:
+        hours = [(_REF_DATE.replace(hour=3), 1.0), (_REF_DATE.replace(hour=6), 2.0)]
+        assert split_hours_by_peak(_flat_meter_data(0.20), hours) is None
 
 
 class TestTariffPatternMatching:

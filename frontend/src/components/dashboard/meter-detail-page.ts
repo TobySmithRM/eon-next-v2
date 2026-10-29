@@ -122,8 +122,8 @@ class EonMeterDetailPage extends LitElement {
       this._days >= 365
         ? toMonthlyStackedBars(this._history, rate, standing, locale)
         : toStackedBars(recent, rate, standing, this._days, locale)
-    // The split only covers days with half-hourly data (the live window), so
-    // summarise across the full fetch rather than the selected range.
+    // The split only covers days with sub-daily (half-hourly or hourly) detail,
+    // so summarise across the full fetch rather than the selected range.
     this._memoSplit = summariseSplit(this._history)
     this._memoMonthToDate = computeMonthCost(
       this._history,
@@ -251,7 +251,7 @@ class EonMeterDetailPage extends LitElement {
         <div class="footnote faint">
           ${
             this._memoSplit
-              ? html`Recent days are split into peak and off-peak from half-hourly usage. `
+              ? html`Days with time-of-use detail are split into peak and off-peak. `
               : nothing
           }Costs
           use today's unit rates applied to historical usage - an approximation, as no
@@ -272,7 +272,7 @@ class EonMeterDetailPage extends LitElement {
         <div class="chart-title-row">
           <div class="chart-title">Peak vs off-peak</div>
           <div class="faint chart-range">
-            Last ${s.days} day${s.days === 1 ? '' : 's'} with half-hourly data
+            Last ${s.days} day${s.days === 1 ? '' : 's'} with time-of-use detail
           </div>
         </div>
         <div class="grid-2">

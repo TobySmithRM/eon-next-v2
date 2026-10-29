@@ -46,7 +46,7 @@ def test_overlays_split_onto_matching_day() -> None:
         ConsumptionHistoryEntry(date=_OLD_ISO, consumption=10.0),
         ConsumptionHistoryEntry(date=_TODAY_ISO, consumption=3.0),
     ]
-    _apply_peak_split(data, entries)
+    _apply_peak_split(data, entries, [])
 
     today = next(e for e in entries if e.date == _TODAY_ISO)
     assert today.split_available is True
@@ -64,11 +64,46 @@ def test_overlays_split_onto_matching_day() -> None:
 def test_flat_rate_is_noop() -> None:
     data = {"tariff_is_tou": False, "consumption": [_hh(3, 1.0)]}
     entries = [ConsumptionHistoryEntry(date=_TODAY_ISO, consumption=1.0)]
-    _apply_peak_split(data, entries)
+    _apply_peak_split(data, entries, [])
     assert entries[0].split_available is False
 
 
 def test_none_meter_data_is_noop() -> None:
     entries = [ConsumptionHistoryEntry(date=_TODAY_ISO, consumption=1.0)]
-    _apply_peak_split(None, entries)
+    _apply_peak_split(None, entries, [])
+    assert entries[0].split_available is False
+
+
+def _tou_meter_no_buffer() -> dict[str, Any]:
+    data = _tou_meter_data()
+    data.pop("consumption", None)
+    return data
+
+
+def test_overlays_split_from_hourly_stats() -> None:
+    # No live half-hourly buffer: an older day is split from stored hourly stats.
+    data = _tou_meter_no_buffer()
+    old = _REF_DATE - timedelta(days=30)
+    hourly = [(old.replace(hour=3), 1.0), (old.replace(hour=6), 2.0)]
+    entries = [ConsumptionHistoryEntry(date=_OLD_ISO, consumption=3.0)]
+
+    _apply_peak_split(data, entries, hourly)
+
+    e = entries[0]
+    assert e.split_available is True
+    assert e.offpeak_kwh == 1.0
+    assert e.peak_kwh == 2.0
+    assert e.offpeak_cost == 0.07
+    assert e.peak_cost == 0.5
+
+
+def test_single_hour_day_is_not_split() -> None:
+    # One row for a day is a daily bucket, not hourly data - leave it plain.
+    data = _tou_meter_no_buffer()
+    old = _REF_DATE - timedelta(days=30)
+    hourly = [(old.replace(hour=3), 5.0)]
+    entries = [ConsumptionHistoryEntry(date=_OLD_ISO, consumption=5.0)]
+
+    _apply_peak_split(data, entries, hourly)
+
     assert entries[0].split_available is False

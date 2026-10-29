@@ -7,7 +7,7 @@ from __future__ import annotations
 
 import dataclasses
 import logging
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from typing import Any
 
 import voluptuous as vol
@@ -32,7 +32,11 @@ from .schemas import (
     VersionResponse,
 )
 from .statistics import statistic_id_for_meter
-from .tariff_helpers import split_consumption_by_peak
+from .tariff_helpers import (
+    PeakSplit,
+    split_consumption_by_peak,
+    split_hours_by_peak,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -221,7 +225,8 @@ async def ws_consumption_history(
 
     entries = _gap_fill(entries, days)
 
-    _apply_peak_split(meter_info.get("meter_data"), entries)
+    hourly = await _fetch_hourly_stats(hass, meter_serial, meter_type, days)
+    _apply_peak_split(meter_info.get("meter_data"), entries, hourly)
 
     connection.send_result(
         msg["id"],
@@ -232,16 +237,31 @@ async def ws_consumption_history(
 def _apply_peak_split(
     meter_data: dict[str, Any] | None,
     entries: list[ConsumptionHistoryEntry],
+    hourly_stats: list[tuple[datetime, float]],
 ) -> None:
     """Overlay a peak/off-peak breakdown onto the daily history in place.
 
-    Uses the raw half-hourly consumption held in coordinator data (the live
-    window), so only recent days gain a split; older daily-only days are left
-    as a single usage bar.  No-op for flat-rate tariffs and gas.
+    Decorates every day that has sub-daily data, from two sources:
+    - stored **hourly** statistics for older days - this grows automatically as
+      the live window rolls forward day by day, so no hourly backfill is needed
+      (days from before install, which only have a daily total, stay plain); and
+    - the live **half-hourly** buffer for the most recent few days, which is
+      finer and wins where the two overlap.
+
+    Hourly data is exact for off-peak windows aligned to the hour; a tariff that
+    switches on a half-hour loses a little precision on the boundary hour for
+    the older (hourly-sourced) days only.  No-op for flat-rate tariffs and gas.
     """
     if not meter_data:
         return
-    split = split_consumption_by_peak(meter_data, meter_data.get("consumption") or [])
+    split: dict[str, PeakSplit] = {}
+    stats_split = split_hours_by_peak(meter_data, hourly_stats)
+    if stats_split:
+        split.update(stats_split)
+    buffer_split = split_consumption_by_peak(meter_data, meter_data.get("consumption") or [])
+    if buffer_split:
+        # Half-hourly buffer is more precise, so it wins for the recent days.
+        split.update(buffer_split)
     if not split:
         return
     for entry in entries:
@@ -253,6 +273,59 @@ def _apply_peak_split(
         entry.offpeak_kwh = day.offpeak_kwh
         entry.peak_cost = day.peak_cost
         entry.offpeak_cost = day.offpeak_cost
+
+
+async def _fetch_hourly_stats(
+    hass: HomeAssistant,
+    meter_serial: str,
+    meter_type: str,
+    days: int,
+) -> list[tuple[datetime, float]]:
+    """Fetch per-hour consumption (``change``) from recorder statistics.
+
+    Returns ``(hour_start_utc, kWh)`` rows over the requested range, used to
+    split older days that have accumulated hourly history.  Empty on any error
+    or when no statistic exists yet.
+    """
+    stat_id = statistic_id_for_meter(meter_serial, meter_type)
+    if stat_id is None:
+        return []
+
+    local_now = dt_util.now()
+    end_of_today = local_now.replace(hour=23, minute=59, second=59, microsecond=999999)
+    start_of_range = (local_now - timedelta(days=days)).replace(
+        hour=0, minute=0, second=0, microsecond=0
+    )
+
+    hours: list[tuple[datetime, float]] = []
+    try:
+        from homeassistant.components.recorder.statistics import (
+            statistics_during_period,
+        )
+        from homeassistant.helpers.recorder import get_instance
+
+        result = await get_instance(hass).async_add_executor_job(
+            statistics_during_period,
+            hass,
+            start_of_range,
+            end_of_today,
+            {stat_id},
+            "hour",
+            None,
+            {"change"},
+        )
+        for stat in result.get(stat_id, []):
+            change = stat.get("change")
+            start_ts = stat.get("start")
+            if change is None or change < 0:
+                continue
+            if not isinstance(start_ts, (int, float)):
+                continue
+            hours.append((dt_util.utc_from_timestamp(float(start_ts)), float(change)))
+    except Exception as err:  # pylint: disable=broad-except
+        _LOGGER.debug("Failed to fetch hourly stats for %s: %s", stat_id, err)
+
+    return hours
 
 
 def _gap_fill(

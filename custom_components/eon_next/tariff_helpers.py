@@ -631,6 +631,62 @@ def split_consumption_by_peak(
     }
 
 
+def split_hours_by_peak(
+    meter_data: dict[str, Any],
+    hours: list[tuple[datetime, float]],
+) -> dict[str, PeakSplit] | None:
+    """Split hourly ``(hour_start_utc, kWh)`` rows into per-day peak/off-peak.
+
+    The hourly counterpart of :func:`split_consumption_by_peak`, for stored
+    statistics rather than the live half-hourly buffer.  A day needs more than
+    one hour to be split, so a lone daily-bucket row (older history imported at
+    daily granularity) is left alone instead of being mislabelled as a single
+    off-peak hour.
+
+    Hourly resolution is exact when the tariff's off-peak boundary lands on the
+    hour (e.g. 00:00-06:00); for a tariff that switches on a half-hour the
+    boundary hour is assigned whole - a small approximation, flagged to users.
+
+    Returns ``{ISO-date: PeakSplit}`` for time-of-use tariffs, or ``None``.
+    """
+    if not meter_data.get("tariff_is_tou", False):
+        return None
+
+    by_day: dict[str, list[tuple[datetime, float]]] = {}
+    for start_utc, kwh in hours:
+        day = dt_util.as_local(start_utc).date().isoformat()
+        by_day.setdefault(day, []).append((start_utc, kwh))
+
+    totals: dict[str, PeakSplit] = {}
+    for day, day_hours in by_day.items():
+        if len(day_hours) <= 1:
+            # A single row is a daily bucket, not genuine hourly data.
+            continue
+        acc = [0.0, 0.0, 0.0, 0.0]  # peak_kwh, offpeak_kwh, peak_cost, offpeak_cost
+        priced_any = False
+        for start_utc, kwh in day_hours:
+            rate = rate_for_timestamp(meter_data, start_utc)
+            off_peak = off_peak_for_timestamp(meter_data, start_utc)
+            if rate is None or off_peak is None:
+                continue
+            cost = kwh * rate
+            if off_peak:
+                acc[1] += kwh
+                acc[3] += cost
+            else:
+                acc[0] += kwh
+                acc[2] += cost
+            priced_any = True
+        if priced_any:
+            totals[day] = PeakSplit(
+                peak_kwh=round(acc[0], 3),
+                offpeak_kwh=round(acc[1], 3),
+                peak_cost=round(acc[2], 4),
+                offpeak_cost=round(acc[3], 4),
+            )
+    return totals or None
+
+
 def cost_consumption_entries(
     meter_data: dict[str, Any],
     entries: list[dict[str, Any]],
