@@ -63,6 +63,12 @@ class EonTariffPage extends LitElement {
     if (validFrom) dates.push(`started ${fullDate(validFrom, locale)}`)
     if (validTo) dates.push(`locked until ${fullDate(validTo, locale)}`)
 
+    // On a time-of-use tariff, show peak and off-peak unit rates instead of the
+    // single (averaged) rate. Off-peak uses the green shared with the rate strip
+    // and the usage bars.
+    const { peak, offPeak } = splitDayRates(readDayRates(this.hass, elec?.serial ?? null))
+    const showSplit = tou && peak != null && offPeak != null
+
     return html`
       <div class="card card--dark tariff-hero">
         <div class="tariff-hero-head">
@@ -80,7 +86,19 @@ class EonTariffPage extends LitElement {
           </span>
         </div>
         <div class="tariff-hero-stats">
-          ${this._heroStat('Electricity unit', formatRatePounds(elec?.unit_rate), 'per kWh', 'var(--eon-elec)')}
+          ${
+            showSplit
+              ? html`
+                  ${this._heroStat('Elec peak', formatRatePounds(peak), 'per kWh', 'var(--eon-elec)')}
+                  ${this._heroStat('Elec off-peak', formatRatePounds(offPeak), 'per kWh', 'var(--eon-green-light)', 'var(--eon-green-light)')}
+                `
+              : this._heroStat(
+                  'Electricity unit',
+                  formatRatePounds(elec?.unit_rate),
+                  'per kWh',
+                  'var(--eon-elec)'
+                )
+          }
           ${this._heroStat('Elec standing', formatRatePounds(elec?.standing_charge), 'per day', 'var(--eon-elec-standing)')}
           ${this._heroStat('Gas unit', formatRatePounds(gas?.unit_rate), 'per kWh', 'var(--eon-gas)')}
           ${this._heroStat('Gas standing', formatRatePounds(gas?.standing_charge), 'per day', 'var(--eon-gas-standing)')}
@@ -89,11 +107,22 @@ class EonTariffPage extends LitElement {
     `
   }
 
-  private _heroStat(label: string, value: string, sub: string, color: string) {
+  private _heroStat(
+    label: string,
+    value: string,
+    sub: string,
+    color: string,
+    valueColor?: string
+  ) {
     return html`
       <div class="hero-stat" style="border-left-color:${color}">
         <div class="tariff-stat-label">${label}</div>
-        <div class="serif hero-stat-value">${value}</div>
+        <div
+          class="serif hero-stat-value"
+          style=${valueColor ? `color:${valueColor}` : ''}
+        >
+          ${value}
+        </div>
         <div class="hero-stat-sub">${sub}</div>
       </div>
     `
@@ -177,6 +206,28 @@ class EonTariffPage extends LitElement {
       </div>
     `
   }
+}
+
+/**
+ * Derive a single peak and off-peak unit rate (£/kWh) from today's rate windows.
+ * Off-peak is the cheapest off-peak window, peak the dearest peak window, so a
+ * two-tier tariff resolves to its two rates and a multi-tier one to its extremes.
+ */
+function splitDayRates(rates: DayRate[]): {
+  peak: number | null
+  offPeak: number | null
+} {
+  let peak: number | null = null
+  let offPeak: number | null = null
+  for (const w of rates) {
+    if (!Number.isFinite(w.rate)) continue
+    if (w.isOffPeak) {
+      offPeak = offPeak === null ? w.rate : Math.min(offPeak, w.rate)
+    } else {
+      peak = peak === null ? w.rate : Math.max(peak, w.rate)
+    }
+  }
+  return { peak, offPeak }
 }
 
 function fullDate(value: string, locale: string): string {

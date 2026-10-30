@@ -1,4 +1,4 @@
-function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPropertyDescriptor(t,s):a;if("object"==typeof Reflect&&"function"==typeof Reflect.decorate)n=Reflect.decorate(e,t,s,a);else for(var o=e.length-1;o>=0;o--)(i=e[o])&&(n=(r<3?i(n):r>3?i(t,s,n):i(t,s))||n);return r>3&&n&&Object.defineProperty(t,s,n),n}"function"==typeof SuppressedError&&SuppressedError;const t=globalThis,s=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,a=Symbol(),i=new WeakMap;let r=class{constructor(e,t,s){if(this._$cssResult$=!0,s!==a)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=e,this.t=t}get styleSheet(){let e=this.o;const t=this.t;if(s&&void 0===e){const s=void 0!==t&&1===t.length;s&&(e=i.get(t)),void 0===e&&((this.o=e=new CSSStyleSheet).replaceSync(this.cssText),s&&i.set(t,e))}return e}toString(){return this.cssText}};const n=(e,...t)=>{const s=1===e.length?e[0]:t.reduce((t,s,a)=>t+(e=>{if(!0===e._$cssResult$)return e.cssText;if("number"==typeof e)return e;throw Error("Value passed to 'css' function must be a 'css' function result: "+e+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+e[a+1],e[0]);return new r(s,e,a)},o=s?e=>e:e=>e instanceof CSSStyleSheet?(e=>{let t="";for(const s of e.cssRules)t+=s.cssText;return(e=>new r("string"==typeof e?e:e+"",void 0,a))(t)})(e):e,{is:l,defineProperty:d,getOwnPropertyDescriptor:c,getOwnPropertyNames:h,getOwnPropertySymbols:p,getPrototypeOf:u}=Object,g=globalThis,f=g.trustedTypes,v=f?f.emptyScript:"",m=g.reactiveElementPolyfillSupport,b=(e,t)=>e,y={toAttribute(e,t){switch(t){case Boolean:e=e?v:null;break;case Object:case Array:e=null==e?e:JSON.stringify(e)}return e},fromAttribute(e,t){let s=e;switch(t){case Boolean:s=null!==e;break;case Number:s=null===e?null:Number(e);break;case Object:case Array:try{s=JSON.parse(e)}catch(e){s=null}}return s}},x=(e,t)=>!l(e,t),_={attribute:!0,type:String,converter:y,reflect:!1,useDefault:!1,hasChanged:x};Symbol.metadata??=Symbol("metadata"),g.litPropertyMetadata??=new WeakMap;let $=class extends HTMLElement{static addInitializer(e){this._$Ei(),(this.l??=[]).push(e)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(e,t=_){if(t.state&&(t.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(e)&&((t=Object.create(t)).wrapped=!0),this.elementProperties.set(e,t),!t.noAccessor){const s=Symbol(),a=this.getPropertyDescriptor(e,s,t);void 0!==a&&d(this.prototype,e,a)}}static getPropertyDescriptor(e,t,s){const{get:a,set:i}=c(this.prototype,e)??{get(){return this[t]},set(e){this[t]=e}};return{get:a,set(t){const r=a?.call(this);i?.call(this,t),this.requestUpdate(e,r,s)},configurable:!0,enumerable:!0}}static getPropertyOptions(e){return this.elementProperties.get(e)??_}static _$Ei(){if(this.hasOwnProperty(b("elementProperties")))return;const e=u(this);e.finalize(),void 0!==e.l&&(this.l=[...e.l]),this.elementProperties=new Map(e.elementProperties)}static finalize(){if(this.hasOwnProperty(b("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(b("properties"))){const e=this.properties,t=[...h(e),...p(e)];for(const s of t)this.createProperty(s,e[s])}const e=this[Symbol.metadata];if(null!==e){const t=litPropertyMetadata.get(e);if(void 0!==t)for(const[e,s]of t)this.elementProperties.set(e,s)}this._$Eh=new Map;for(const[e,t]of this.elementProperties){const s=this._$Eu(e,t);void 0!==s&&this._$Eh.set(s,e)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(e){const t=[];if(Array.isArray(e)){const s=new Set(e.flat(1/0).reverse());for(const e of s)t.unshift(o(e))}else void 0!==e&&t.push(o(e));return t}static _$Eu(e,t){const s=t.attribute;return!1===s?void 0:"string"==typeof s?s:"string"==typeof e?e.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(e=>this.enableUpdating=e),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(e=>e(this))}addController(e){(this._$EO??=new Set).add(e),void 0!==this.renderRoot&&this.isConnected&&e.hostConnected?.()}removeController(e){this._$EO?.delete(e)}_$E_(){const e=new Map,t=this.constructor.elementProperties;for(const s of t.keys())this.hasOwnProperty(s)&&(e.set(s,this[s]),delete this[s]);e.size>0&&(this._$Ep=e)}createRenderRoot(){const e=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((e,a)=>{if(s)e.adoptedStyleSheets=a.map(e=>e instanceof CSSStyleSheet?e:e.styleSheet);else for(const s of a){const a=document.createElement("style"),i=t.litNonce;void 0!==i&&a.setAttribute("nonce",i),a.textContent=s.cssText,e.appendChild(a)}})(e,this.constructor.elementStyles),e}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(e=>e.hostConnected?.())}enableUpdating(e){}disconnectedCallback(){this._$EO?.forEach(e=>e.hostDisconnected?.())}attributeChangedCallback(e,t,s){this._$AK(e,s)}_$ET(e,t){const s=this.constructor.elementProperties.get(e),a=this.constructor._$Eu(e,s);if(void 0!==a&&!0===s.reflect){const i=(void 0!==s.converter?.toAttribute?s.converter:y).toAttribute(t,s.type);this._$Em=e,null==i?this.removeAttribute(a):this.setAttribute(a,i),this._$Em=null}}_$AK(e,t){const s=this.constructor,a=s._$Eh.get(e);if(void 0!==a&&this._$Em!==a){const e=s.getPropertyOptions(a),i="function"==typeof e.converter?{fromAttribute:e.converter}:void 0!==e.converter?.fromAttribute?e.converter:y;this._$Em=a;const r=i.fromAttribute(t,e.type);this[a]=r??this._$Ej?.get(a)??r,this._$Em=null}}requestUpdate(e,t,s,a=!1,i){if(void 0!==e){const r=this.constructor;if(!1===a&&(i=this[e]),s??=r.getPropertyOptions(e),!((s.hasChanged??x)(i,t)||s.useDefault&&s.reflect&&i===this._$Ej?.get(e)&&!this.hasAttribute(r._$Eu(e,s))))return;this.C(e,t,s)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(e,t,{useDefault:s,reflect:a,wrapped:i},r){s&&!(this._$Ej??=new Map).has(e)&&(this._$Ej.set(e,r??t??this[e]),!0!==i||void 0!==r)||(this._$AL.has(e)||(this.hasUpdated||s||(t=void 0),this._$AL.set(e,t)),!0===a&&this._$Em!==e&&(this._$Eq??=new Set).add(e))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(e){Promise.reject(e)}const e=this.scheduleUpdate();return null!=e&&await e,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[e,t]of this._$Ep)this[e]=t;this._$Ep=void 0}const e=this.constructor.elementProperties;if(e.size>0)for(const[t,s]of e){const{wrapped:e}=s,a=this[t];!0!==e||this._$AL.has(t)||void 0===a||this.C(t,void 0,s,a)}}let e=!1;const t=this._$AL;try{e=this.shouldUpdate(t),e?(this.willUpdate(t),this._$EO?.forEach(e=>e.hostUpdate?.()),this.update(t)):this._$EM()}catch(t){throw e=!1,this._$EM(),t}e&&this._$AE(t)}willUpdate(e){}_$AE(e){this._$EO?.forEach(e=>e.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(e)),this.updated(e)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(e){return!0}update(e){this._$Eq&&=this._$Eq.forEach(e=>this._$ET(e,this[e])),this._$EM()}updated(e){}firstUpdated(e){}};$.elementStyles=[],$.shadowRootOptions={mode:"open"},$[b("elementProperties")]=new Map,$[b("finalized")]=new Map,m?.({ReactiveElement:$}),(g.reactiveElementVersions??=[]).push("2.1.2");const w=globalThis,k=e=>e,C=w.trustedTypes,A=C?C.createPolicy("lit-html",{createHTML:e=>e}):void 0,S="$lit$",T=`lit$${Math.random().toFixed(9).slice(2)}$`,E="?"+T,z=`<${E}>`,M=document,D=()=>M.createComment(""),N=e=>null===e||"object"!=typeof e&&"function"!=typeof e,P=Array.isArray,H="[ \t\n\f\r]",O=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,j=/-->/g,U=/>/g,R=RegExp(`>|${H}(?:([^\\s"'>=/]+)(${H}*=${H}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),L=/'/g,F=/"/g,B=/^(?:script|style|textarea|title)$/i,I=(e=>(t,...s)=>({_$litType$:e,strings:t,values:s}))(1),W=Symbol.for("lit-noChange"),q=Symbol.for("lit-nothing"),V=new WeakMap,Y=M.createTreeWalker(M,129);function G(e,t){if(!P(e)||!e.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==A?A.createHTML(t):t}const K=(e,t)=>{const s=e.length-1,a=[];let i,r=2===t?"<svg>":3===t?"<math>":"",n=O;for(let t=0;t<s;t++){const s=e[t];let o,l,d=-1,c=0;for(;c<s.length&&(n.lastIndex=c,l=n.exec(s),null!==l);)c=n.lastIndex,n===O?"!--"===l[1]?n=j:void 0!==l[1]?n=U:void 0!==l[2]?(B.test(l[2])&&(i=RegExp("</"+l[2],"g")),n=R):void 0!==l[3]&&(n=R):n===R?">"===l[0]?(n=i??O,d=-1):void 0===l[1]?d=-2:(d=n.lastIndex-l[2].length,o=l[1],n=void 0===l[3]?R:'"'===l[3]?F:L):n===F||n===L?n=R:n===j||n===U?n=O:(n=R,i=void 0);const h=n===R&&e[t+1].startsWith("/>")?" ":"";r+=n===O?s+z:d>=0?(a.push(o),s.slice(0,d)+S+s.slice(d)+T+h):s+T+(-2===d?t:h)}return[G(e,r+(e[s]||"<?>")+(2===t?"</svg>":3===t?"</math>":"")),a]};class J{constructor({strings:e,_$litType$:t},s){let a;this.parts=[];let i=0,r=0;const n=e.length-1,o=this.parts,[l,d]=K(e,t);if(this.el=J.createElement(l,s),Y.currentNode=this.el.content,2===t||3===t){const e=this.el.content.firstChild;e.replaceWith(...e.childNodes)}for(;null!==(a=Y.nextNode())&&o.length<n;){if(1===a.nodeType){if(a.hasAttributes())for(const e of a.getAttributeNames())if(e.endsWith(S)){const t=d[r++],s=a.getAttribute(e).split(T),n=/([.?@])?(.*)/.exec(t);o.push({type:1,index:i,name:n[2],strings:s,ctor:"."===n[1]?te:"?"===n[1]?se:"@"===n[1]?ae:ee}),a.removeAttribute(e)}else e.startsWith(T)&&(o.push({type:6,index:i}),a.removeAttribute(e));if(B.test(a.tagName)){const e=a.textContent.split(T),t=e.length-1;if(t>0){a.textContent=C?C.emptyScript:"";for(let s=0;s<t;s++)a.append(e[s],D()),Y.nextNode(),o.push({type:2,index:++i});a.append(e[t],D())}}}else if(8===a.nodeType)if(a.data===E)o.push({type:2,index:i});else{let e=-1;for(;-1!==(e=a.data.indexOf(T,e+1));)o.push({type:7,index:i}),e+=T.length-1}i++}}static createElement(e,t){const s=M.createElement("template");return s.innerHTML=e,s}}function Z(e,t,s=e,a){if(t===W)return t;let i=void 0!==a?s._$Co?.[a]:s._$Cl;const r=N(t)?void 0:t._$litDirective$;return i?.constructor!==r&&(i?._$AO?.(!1),void 0===r?i=void 0:(i=new r(e),i._$AT(e,s,a)),void 0!==a?(s._$Co??=[])[a]=i:s._$Cl=i),void 0!==i&&(t=Z(e,i._$AS(e,t.values),i,a)),t}class Q{constructor(e,t){this._$AV=[],this._$AN=void 0,this._$AD=e,this._$AM=t}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(e){const{el:{content:t},parts:s}=this._$AD,a=(e?.creationScope??M).importNode(t,!0);Y.currentNode=a;let i=Y.nextNode(),r=0,n=0,o=s[0];for(;void 0!==o;){if(r===o.index){let t;2===o.type?t=new X(i,i.nextSibling,this,e):1===o.type?t=new o.ctor(i,o.name,o.strings,this,e):6===o.type&&(t=new ie(i,this,e)),this._$AV.push(t),o=s[++n]}r!==o?.index&&(i=Y.nextNode(),r++)}return Y.currentNode=M,a}p(e){let t=0;for(const s of this._$AV)void 0!==s&&(void 0!==s.strings?(s._$AI(e,s,t),t+=s.strings.length-2):s._$AI(e[t])),t++}}class X{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(e,t,s,a){this.type=2,this._$AH=q,this._$AN=void 0,this._$AA=e,this._$AB=t,this._$AM=s,this.options=a,this._$Cv=a?.isConnected??!0}get parentNode(){let e=this._$AA.parentNode;const t=this._$AM;return void 0!==t&&11===e?.nodeType&&(e=t.parentNode),e}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(e,t=this){e=Z(this,e,t),N(e)?e===q||null==e||""===e?(this._$AH!==q&&this._$AR(),this._$AH=q):e!==this._$AH&&e!==W&&this._(e):void 0!==e._$litType$?this.$(e):void 0!==e.nodeType?this.T(e):(e=>P(e)||"function"==typeof e?.[Symbol.iterator])(e)?this.k(e):this._(e)}O(e){return this._$AA.parentNode.insertBefore(e,this._$AB)}T(e){this._$AH!==e&&(this._$AR(),this._$AH=this.O(e))}_(e){this._$AH!==q&&N(this._$AH)?this._$AA.nextSibling.data=e:this.T(M.createTextNode(e)),this._$AH=e}$(e){const{values:t,_$litType$:s}=e,a="number"==typeof s?this._$AC(e):(void 0===s.el&&(s.el=J.createElement(G(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===a)this._$AH.p(t);else{const e=new Q(a,this),s=e.u(this.options);e.p(t),this.T(s),this._$AH=e}}_$AC(e){let t=V.get(e.strings);return void 0===t&&V.set(e.strings,t=new J(e)),t}k(e){P(this._$AH)||(this._$AH=[],this._$AR());const t=this._$AH;let s,a=0;for(const i of e)a===t.length?t.push(s=new X(this.O(D()),this.O(D()),this,this.options)):s=t[a],s._$AI(i),a++;a<t.length&&(this._$AR(s&&s._$AB.nextSibling,a),t.length=a)}_$AR(e=this._$AA.nextSibling,t){for(this._$AP?.(!1,!0,t);e!==this._$AB;){const t=k(e).nextSibling;k(e).remove(),e=t}}setConnected(e){void 0===this._$AM&&(this._$Cv=e,this._$AP?.(e))}}class ee{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(e,t,s,a,i){this.type=1,this._$AH=q,this._$AN=void 0,this.element=e,this.name=t,this._$AM=a,this.options=i,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=q}_$AI(e,t=this,s,a){const i=this.strings;let r=!1;if(void 0===i)e=Z(this,e,t,0),r=!N(e)||e!==this._$AH&&e!==W,r&&(this._$AH=e);else{const a=e;let n,o;for(e=i[0],n=0;n<i.length-1;n++)o=Z(this,a[s+n],t,n),o===W&&(o=this._$AH[n]),r||=!N(o)||o!==this._$AH[n],o===q?e=q:e!==q&&(e+=(o??"")+i[n+1]),this._$AH[n]=o}r&&!a&&this.j(e)}j(e){e===q?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,e??"")}}class te extends ee{constructor(){super(...arguments),this.type=3}j(e){this.element[this.name]=e===q?void 0:e}}class se extends ee{constructor(){super(...arguments),this.type=4}j(e){this.element.toggleAttribute(this.name,!!e&&e!==q)}}class ae extends ee{constructor(e,t,s,a,i){super(e,t,s,a,i),this.type=5}_$AI(e,t=this){if((e=Z(this,e,t,0)??q)===W)return;const s=this._$AH,a=e===q&&s!==q||e.capture!==s.capture||e.once!==s.once||e.passive!==s.passive,i=e!==q&&(s===q||a);a&&this.element.removeEventListener(this.name,this,s),i&&this.element.addEventListener(this.name,this,e),this._$AH=e}handleEvent(e){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,e):this._$AH.handleEvent(e)}}class ie{constructor(e,t,s){this.element=e,this.type=6,this._$AN=void 0,this._$AM=t,this.options=s}get _$AU(){return this._$AM._$AU}_$AI(e){Z(this,e)}}const re=w.litHtmlPolyfillSupport;re?.(J,X),(w.litHtmlVersions??=[]).push("3.3.2");const ne=globalThis;class oe extends ${constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const e=super.createRenderRoot();return this.renderOptions.renderBefore??=e.firstChild,e}update(e){const t=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(e),this._$Do=((e,t,s)=>{const a=s?.renderBefore??t;let i=a._$litPart$;if(void 0===i){const e=s?.renderBefore??null;a._$litPart$=i=new X(t.insertBefore(D(),e),e,void 0,s??{})}return i._$AI(e),i})(t,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return W}}oe._$litElement$=!0,oe.finalized=!0,ne.litElementHydrateSupport?.({LitElement:oe});const le=ne.litElementPolyfillSupport;le?.({LitElement:oe}),(ne.litElementVersions??=[]).push("4.2.2");const de={attribute:!0,type:String,converter:y,reflect:!1,hasChanged:x},ce=(e=de,t,s)=>{const{kind:a,metadata:i}=s;let r=globalThis.litPropertyMetadata.get(i);if(void 0===r&&globalThis.litPropertyMetadata.set(i,r=new Map),"setter"===a&&((e=Object.create(e)).wrapped=!0),r.set(s.name,e),"accessor"===a){const{name:a}=s;return{set(s){const i=t.get.call(this);t.set.call(this,s),this.requestUpdate(a,i,e,!0,s)},init(t){return void 0!==t&&this.C(a,void 0,e,t),t}}}if("setter"===a){const{name:a}=s;return function(s){const i=this[a];t.call(this,s),this.requestUpdate(a,i,e,!0,s)}}throw Error("Unsupported decorator location: "+a)};function he(e){return(t,s)=>"object"==typeof s?ce(e,t,s):((e,t,s)=>{const a=t.hasOwnProperty(s);return t.constructor.createProperty(s,e),a?Object.getOwnPropertyDescriptor(t,s):void 0})(e,t,s)}function pe(e){return he({...e,state:!0,attribute:!1})}async function ue(e){return e.callWS({type:"eon_next/backfill_status"})}async function ge(e,t,s=7){return e.callWS({type:"eon_next/consumption_history",meter_serial:t,days:s})}class fe{constructor(e,t){this._host=e,this._fetcher=t,this.data=null,this.loading=!0,this.refreshing=!1,this.error=null,this._requestSeq=0,this._lastConnection=void 0,this._started=!1,this._host.addController(this)}hostConnected(){this._startTimer()}hostUpdated(){const e=this._host.hass;e&&(this._started?this._lastConnection!==e.connection&&(this._lastConnection=e.connection,this._fetch(e)):(this._started=!0,this._fetch(e)))}async refresh(){const e=this._host.hass;e&&await this._fetch(e)}_startTimer(){this._stopTimer(),this._timer=setInterval(()=>{const e=this._host.hass;e&&this._fetch(e)},3e5)}_stopTimer(){void 0!==this._timer&&(clearInterval(this._timer),this._timer=void 0)}async _fetch(e){const t=++this._requestSeq;this._lastConnection=e.connection,null===this.data?this.loading=!0:this.refreshing=!0,this.error=null,this._host.requestUpdate();try{const s=await this._fetcher(e);if(t!==this._requestSeq)return;this.data=s}catch(e){if(t!==this._requestSeq)return;this.error=e instanceof Error?e.message:String(e)}finally{t===this._requestSeq&&(this.loading=!1,this.refreshing=!1,this._host.requestUpdate())}}hostDisconnected(){this._stopTimer(),this._requestSeq++,this.data=null,this.loading=!0,this.refreshing=!1,this._lastConnection=void 0,this._started=!1}}function ve(e){let t=0,s=0;for(const a of e?.meters??[]){const e=Math.max(0,(a.days_completed??0)+(a.days_remaining??0));t+=a.done?e:Math.max(0,a.days_completed??0),s+=e}let a=null;return s>0?a=Math.round(t/s*100):e&&e.total_meters>0&&(a=Math.round(e.completed_meters/e.total_meters*100)),{doneDays:t,totalDays:s,pct:a}}function me(e,t){return e?e.meters.find(e=>be(e.type)===t)??null:null}function be(e){return"gas"===e?"gas":"electricity"}const ye={electricity:{label:"Electricity",icon:"mdi:lightning-bolt",tileClass:"tile--elec",usageColor:"var(--eon-elec)",standColor:"var(--eon-elec-standing)"},gas:{label:"Gas",icon:"mdi:fire",tileClass:"tile--gas",usageColor:"var(--eon-gas)",standColor:"var(--eon-gas-standing)"}};function xe(e){return e.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"")}const _e=new WeakMap;function $e(e,t,s){let a=_e.get(e);if(a||(a=new Map,_e.set(e,a)),a.has(t))return a.get(t)??null;const i=s();return a.set(t,i),i}function we(e,t,s,a){if(!e?.states||!s)return null;const i=e.states;return $e(i,`${t}|${s}|${a}`,()=>{const e=`${t}.${xe(s)}_${a}`,r=i[e];if(r)return r;const n=xe(s),o=`_${a}`;for(const[e,s]of Object.entries(i))if(e.startsWith(`${t}.`)&&e.includes(n)&&e.endsWith(o))return s;return null})}function ke(e){if(!e)return null;const t=Number(e.state);return Number.isFinite(t)?t:null}function Ce(e,t,s){const a=we(e,"sensor",t,s);return{rate:ke(a),validFrom:Ae(a,"valid_from"),validTo:Ae(a,"valid_to")}}function Ae(e,t){const s=e?.attributes?.[t];return"string"==typeof s&&""!==s?s:null}function Se(e,t){const s=we(e,"binary_sensor",t,"off_peak");return null!=s&&"unavailable"!==s.state&&"unknown"!==s.state}function Te(e,t=2){return null!=e&&Number.isFinite(e)?`£${e.toFixed(t)}`:"-"}function Ee(e,t=2){return null!=e&&Number.isFinite(e)?`${(100*e).toFixed(t)}p`:"-"}function ze(e){return null!=e&&Number.isFinite(e)?`£${e.toFixed(4)}`:"-"}function Me(e,t="en"){if(!e)return"-";const s=new Date(e.length<=10?`${e}T00:00:00`:e);return isNaN(s.getTime())?e:s.toLocaleDateString(t,{day:"numeric",month:"short"})}function De(e,t,s,a,i="en"){const r=t??0,n=s??0,o=e.map(e=>{const t=!0===e.split_available&&null!=e.peak_cost&&null!=e.offpeak_cost,s=t?Math.max(0,e.offpeak_cost):0,a=t?Math.max(0,e.peak_cost):0,i=t?s+a:Math.max(0,e.consumption)*r;return{date:e.date,usageCost:i,offpeakCost:s,peakCost:a,split:t,standCost:n,missing:!0===e.missing}}),l=Math.max(1e-4,...o.map(e=>e.usageCost+e.standCost));return o.map((t,s)=>({usagePct:t.usageCost/l*100,standPct:t.standCost/l*100,usageCost:t.usageCost,standCost:t.standCost,splitAvailable:t.split,offpeakPct:t.split?t.offpeakCost/l*100:void 0,peakPct:t.split?t.peakCost/l*100:void 0,offpeakCost:t.split?t.offpeakCost:void 0,peakCost:t.split?t.peakCost:void 0,missing:t.missing,label:Ne(t.date,s,e.length,a,i)}))}function Ne(e,t,s,a,i){const r=new Date(`${e}T00:00:00`);if(isNaN(r.getTime()))return"";if(a<=14)return r.toLocaleDateString(i,{weekday:"short"});return t%(a<=31?5:15)!==0&&t!==s-1?"":r.toLocaleDateString(i,{day:"numeric",month:"short"})}function Pe(e,t,s,a){const i=t??0,r=s??0,n=a.getFullYear(),o=a.getMonth(),l=new Date(n,o-1,1),d=l.getFullYear(),c=l.getMonth();let h=0,p=0,u=0,g=0;for(const t of e){const e=new Date(`${t.date}T00:00:00`);if(isNaN(e.getTime()))continue;const s=Math.max(0,t.consumption)*i+r;e.getFullYear()===n&&e.getMonth()===o?(h+=s,p++):e.getFullYear()===d&&e.getMonth()===c&&(u+=s,g++)}return{monthToDate:He(h),daysWithData:p,previousMonth:g>0?He(u):null}}function He(e){return Math.round(100*e)/100}const Oe=[{page:"overview",label:"Overview",icon:"mdi:view-grid-outline"},{page:"elec",label:"Electricity",icon:"mdi:lightning-bolt"},{page:"gas",label:"Gas",icon:"mdi:fire"},{page:"tariff",label:"Tariff & rates",icon:"mdi:tag-outline"},{page:"ev",label:"EV charging",icon:"mdi:ev-station"}],je={overview:"Overview",elec:"Electricity",gas:"Gas",tariff:"Tariff & rates",ev:"EV charging",settings:"Settings"},Ue=n`/*
+function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPropertyDescriptor(t,s):a;if("object"==typeof Reflect&&"function"==typeof Reflect.decorate)n=Reflect.decorate(e,t,s,a);else for(var o=e.length-1;o>=0;o--)(i=e[o])&&(n=(r<3?i(n):r>3?i(t,s,n):i(t,s))||n);return r>3&&n&&Object.defineProperty(t,s,n),n}"function"==typeof SuppressedError&&SuppressedError;const t=globalThis,s=t.ShadowRoot&&(void 0===t.ShadyCSS||t.ShadyCSS.nativeShadow)&&"adoptedStyleSheets"in Document.prototype&&"replace"in CSSStyleSheet.prototype,a=Symbol(),i=new WeakMap;let r=class{constructor(e,t,s){if(this._$cssResult$=!0,s!==a)throw Error("CSSResult is not constructable. Use `unsafeCSS` or `css` instead.");this.cssText=e,this.t=t}get styleSheet(){let e=this.o;const t=this.t;if(s&&void 0===e){const s=void 0!==t&&1===t.length;s&&(e=i.get(t)),void 0===e&&((this.o=e=new CSSStyleSheet).replaceSync(this.cssText),s&&i.set(t,e))}return e}toString(){return this.cssText}};const n=(e,...t)=>{const s=1===e.length?e[0]:t.reduce((t,s,a)=>t+(e=>{if(!0===e._$cssResult$)return e.cssText;if("number"==typeof e)return e;throw Error("Value passed to 'css' function must be a 'css' function result: "+e+". Use 'unsafeCSS' to pass non-literal values, but take care to ensure page security.")})(s)+e[a+1],e[0]);return new r(s,e,a)},o=s?e=>e:e=>e instanceof CSSStyleSheet?(e=>{let t="";for(const s of e.cssRules)t+=s.cssText;return(e=>new r("string"==typeof e?e:e+"",void 0,a))(t)})(e):e,{is:l,defineProperty:d,getOwnPropertyDescriptor:c,getOwnPropertyNames:h,getOwnPropertySymbols:p,getPrototypeOf:u}=Object,f=globalThis,g=f.trustedTypes,v=g?g.emptyScript:"",m=f.reactiveElementPolyfillSupport,b=(e,t)=>e,y={toAttribute(e,t){switch(t){case Boolean:e=e?v:null;break;case Object:case Array:e=null==e?e:JSON.stringify(e)}return e},fromAttribute(e,t){let s=e;switch(t){case Boolean:s=null!==e;break;case Number:s=null===e?null:Number(e);break;case Object:case Array:try{s=JSON.parse(e)}catch(e){s=null}}return s}},x=(e,t)=>!l(e,t),_={attribute:!0,type:String,converter:y,reflect:!1,useDefault:!1,hasChanged:x};Symbol.metadata??=Symbol("metadata"),f.litPropertyMetadata??=new WeakMap;let $=class extends HTMLElement{static addInitializer(e){this._$Ei(),(this.l??=[]).push(e)}static get observedAttributes(){return this.finalize(),this._$Eh&&[...this._$Eh.keys()]}static createProperty(e,t=_){if(t.state&&(t.attribute=!1),this._$Ei(),this.prototype.hasOwnProperty(e)&&((t=Object.create(t)).wrapped=!0),this.elementProperties.set(e,t),!t.noAccessor){const s=Symbol(),a=this.getPropertyDescriptor(e,s,t);void 0!==a&&d(this.prototype,e,a)}}static getPropertyDescriptor(e,t,s){const{get:a,set:i}=c(this.prototype,e)??{get(){return this[t]},set(e){this[t]=e}};return{get:a,set(t){const r=a?.call(this);i?.call(this,t),this.requestUpdate(e,r,s)},configurable:!0,enumerable:!0}}static getPropertyOptions(e){return this.elementProperties.get(e)??_}static _$Ei(){if(this.hasOwnProperty(b("elementProperties")))return;const e=u(this);e.finalize(),void 0!==e.l&&(this.l=[...e.l]),this.elementProperties=new Map(e.elementProperties)}static finalize(){if(this.hasOwnProperty(b("finalized")))return;if(this.finalized=!0,this._$Ei(),this.hasOwnProperty(b("properties"))){const e=this.properties,t=[...h(e),...p(e)];for(const s of t)this.createProperty(s,e[s])}const e=this[Symbol.metadata];if(null!==e){const t=litPropertyMetadata.get(e);if(void 0!==t)for(const[e,s]of t)this.elementProperties.set(e,s)}this._$Eh=new Map;for(const[e,t]of this.elementProperties){const s=this._$Eu(e,t);void 0!==s&&this._$Eh.set(s,e)}this.elementStyles=this.finalizeStyles(this.styles)}static finalizeStyles(e){const t=[];if(Array.isArray(e)){const s=new Set(e.flat(1/0).reverse());for(const e of s)t.unshift(o(e))}else void 0!==e&&t.push(o(e));return t}static _$Eu(e,t){const s=t.attribute;return!1===s?void 0:"string"==typeof s?s:"string"==typeof e?e.toLowerCase():void 0}constructor(){super(),this._$Ep=void 0,this.isUpdatePending=!1,this.hasUpdated=!1,this._$Em=null,this._$Ev()}_$Ev(){this._$ES=new Promise(e=>this.enableUpdating=e),this._$AL=new Map,this._$E_(),this.requestUpdate(),this.constructor.l?.forEach(e=>e(this))}addController(e){(this._$EO??=new Set).add(e),void 0!==this.renderRoot&&this.isConnected&&e.hostConnected?.()}removeController(e){this._$EO?.delete(e)}_$E_(){const e=new Map,t=this.constructor.elementProperties;for(const s of t.keys())this.hasOwnProperty(s)&&(e.set(s,this[s]),delete this[s]);e.size>0&&(this._$Ep=e)}createRenderRoot(){const e=this.shadowRoot??this.attachShadow(this.constructor.shadowRootOptions);return((e,a)=>{if(s)e.adoptedStyleSheets=a.map(e=>e instanceof CSSStyleSheet?e:e.styleSheet);else for(const s of a){const a=document.createElement("style"),i=t.litNonce;void 0!==i&&a.setAttribute("nonce",i),a.textContent=s.cssText,e.appendChild(a)}})(e,this.constructor.elementStyles),e}connectedCallback(){this.renderRoot??=this.createRenderRoot(),this.enableUpdating(!0),this._$EO?.forEach(e=>e.hostConnected?.())}enableUpdating(e){}disconnectedCallback(){this._$EO?.forEach(e=>e.hostDisconnected?.())}attributeChangedCallback(e,t,s){this._$AK(e,s)}_$ET(e,t){const s=this.constructor.elementProperties.get(e),a=this.constructor._$Eu(e,s);if(void 0!==a&&!0===s.reflect){const i=(void 0!==s.converter?.toAttribute?s.converter:y).toAttribute(t,s.type);this._$Em=e,null==i?this.removeAttribute(a):this.setAttribute(a,i),this._$Em=null}}_$AK(e,t){const s=this.constructor,a=s._$Eh.get(e);if(void 0!==a&&this._$Em!==a){const e=s.getPropertyOptions(a),i="function"==typeof e.converter?{fromAttribute:e.converter}:void 0!==e.converter?.fromAttribute?e.converter:y;this._$Em=a;const r=i.fromAttribute(t,e.type);this[a]=r??this._$Ej?.get(a)??r,this._$Em=null}}requestUpdate(e,t,s,a=!1,i){if(void 0!==e){const r=this.constructor;if(!1===a&&(i=this[e]),s??=r.getPropertyOptions(e),!((s.hasChanged??x)(i,t)||s.useDefault&&s.reflect&&i===this._$Ej?.get(e)&&!this.hasAttribute(r._$Eu(e,s))))return;this.C(e,t,s)}!1===this.isUpdatePending&&(this._$ES=this._$EP())}C(e,t,{useDefault:s,reflect:a,wrapped:i},r){s&&!(this._$Ej??=new Map).has(e)&&(this._$Ej.set(e,r??t??this[e]),!0!==i||void 0!==r)||(this._$AL.has(e)||(this.hasUpdated||s||(t=void 0),this._$AL.set(e,t)),!0===a&&this._$Em!==e&&(this._$Eq??=new Set).add(e))}async _$EP(){this.isUpdatePending=!0;try{await this._$ES}catch(e){Promise.reject(e)}const e=this.scheduleUpdate();return null!=e&&await e,!this.isUpdatePending}scheduleUpdate(){return this.performUpdate()}performUpdate(){if(!this.isUpdatePending)return;if(!this.hasUpdated){if(this.renderRoot??=this.createRenderRoot(),this._$Ep){for(const[e,t]of this._$Ep)this[e]=t;this._$Ep=void 0}const e=this.constructor.elementProperties;if(e.size>0)for(const[t,s]of e){const{wrapped:e}=s,a=this[t];!0!==e||this._$AL.has(t)||void 0===a||this.C(t,void 0,s,a)}}let e=!1;const t=this._$AL;try{e=this.shouldUpdate(t),e?(this.willUpdate(t),this._$EO?.forEach(e=>e.hostUpdate?.()),this.update(t)):this._$EM()}catch(t){throw e=!1,this._$EM(),t}e&&this._$AE(t)}willUpdate(e){}_$AE(e){this._$EO?.forEach(e=>e.hostUpdated?.()),this.hasUpdated||(this.hasUpdated=!0,this.firstUpdated(e)),this.updated(e)}_$EM(){this._$AL=new Map,this.isUpdatePending=!1}get updateComplete(){return this.getUpdateComplete()}getUpdateComplete(){return this._$ES}shouldUpdate(e){return!0}update(e){this._$Eq&&=this._$Eq.forEach(e=>this._$ET(e,this[e])),this._$EM()}updated(e){}firstUpdated(e){}};$.elementStyles=[],$.shadowRootOptions={mode:"open"},$[b("elementProperties")]=new Map,$[b("finalized")]=new Map,m?.({ReactiveElement:$}),(f.reactiveElementVersions??=[]).push("2.1.2");const w=globalThis,k=e=>e,C=w.trustedTypes,A=C?C.createPolicy("lit-html",{createHTML:e=>e}):void 0,S="$lit$",T=`lit$${Math.random().toFixed(9).slice(2)}$`,E="?"+T,z=`<${E}>`,M=document,N=()=>M.createComment(""),D=e=>null===e||"object"!=typeof e&&"function"!=typeof e,P=Array.isArray,H="[ \t\n\f\r]",O=/<(?:(!--|\/[^a-zA-Z])|(\/?[a-zA-Z][^>\s]*)|(\/?$))/g,j=/-->/g,U=/>/g,R=RegExp(`>|${H}(?:([^\\s"'>=/]+)(${H}*=${H}*(?:[^ \t\n\f\r"'\`<>=]|("|')|))|$)`,"g"),L=/'/g,F=/"/g,B=/^(?:script|style|textarea|title)$/i,I=(e=>(t,...s)=>({_$litType$:e,strings:t,values:s}))(1),W=Symbol.for("lit-noChange"),q=Symbol.for("lit-nothing"),V=new WeakMap,Y=M.createTreeWalker(M,129);function G(e,t){if(!P(e)||!e.hasOwnProperty("raw"))throw Error("invalid template strings array");return void 0!==A?A.createHTML(t):t}const K=(e,t)=>{const s=e.length-1,a=[];let i,r=2===t?"<svg>":3===t?"<math>":"",n=O;for(let t=0;t<s;t++){const s=e[t];let o,l,d=-1,c=0;for(;c<s.length&&(n.lastIndex=c,l=n.exec(s),null!==l);)c=n.lastIndex,n===O?"!--"===l[1]?n=j:void 0!==l[1]?n=U:void 0!==l[2]?(B.test(l[2])&&(i=RegExp("</"+l[2],"g")),n=R):void 0!==l[3]&&(n=R):n===R?">"===l[0]?(n=i??O,d=-1):void 0===l[1]?d=-2:(d=n.lastIndex-l[2].length,o=l[1],n=void 0===l[3]?R:'"'===l[3]?F:L):n===F||n===L?n=R:n===j||n===U?n=O:(n=R,i=void 0);const h=n===R&&e[t+1].startsWith("/>")?" ":"";r+=n===O?s+z:d>=0?(a.push(o),s.slice(0,d)+S+s.slice(d)+T+h):s+T+(-2===d?t:h)}return[G(e,r+(e[s]||"<?>")+(2===t?"</svg>":3===t?"</math>":"")),a]};class J{constructor({strings:e,_$litType$:t},s){let a;this.parts=[];let i=0,r=0;const n=e.length-1,o=this.parts,[l,d]=K(e,t);if(this.el=J.createElement(l,s),Y.currentNode=this.el.content,2===t||3===t){const e=this.el.content.firstChild;e.replaceWith(...e.childNodes)}for(;null!==(a=Y.nextNode())&&o.length<n;){if(1===a.nodeType){if(a.hasAttributes())for(const e of a.getAttributeNames())if(e.endsWith(S)){const t=d[r++],s=a.getAttribute(e).split(T),n=/([.?@])?(.*)/.exec(t);o.push({type:1,index:i,name:n[2],strings:s,ctor:"."===n[1]?te:"?"===n[1]?se:"@"===n[1]?ae:ee}),a.removeAttribute(e)}else e.startsWith(T)&&(o.push({type:6,index:i}),a.removeAttribute(e));if(B.test(a.tagName)){const e=a.textContent.split(T),t=e.length-1;if(t>0){a.textContent=C?C.emptyScript:"";for(let s=0;s<t;s++)a.append(e[s],N()),Y.nextNode(),o.push({type:2,index:++i});a.append(e[t],N())}}}else if(8===a.nodeType)if(a.data===E)o.push({type:2,index:i});else{let e=-1;for(;-1!==(e=a.data.indexOf(T,e+1));)o.push({type:7,index:i}),e+=T.length-1}i++}}static createElement(e,t){const s=M.createElement("template");return s.innerHTML=e,s}}function Z(e,t,s=e,a){if(t===W)return t;let i=void 0!==a?s._$Co?.[a]:s._$Cl;const r=D(t)?void 0:t._$litDirective$;return i?.constructor!==r&&(i?._$AO?.(!1),void 0===r?i=void 0:(i=new r(e),i._$AT(e,s,a)),void 0!==a?(s._$Co??=[])[a]=i:s._$Cl=i),void 0!==i&&(t=Z(e,i._$AS(e,t.values),i,a)),t}class Q{constructor(e,t){this._$AV=[],this._$AN=void 0,this._$AD=e,this._$AM=t}get parentNode(){return this._$AM.parentNode}get _$AU(){return this._$AM._$AU}u(e){const{el:{content:t},parts:s}=this._$AD,a=(e?.creationScope??M).importNode(t,!0);Y.currentNode=a;let i=Y.nextNode(),r=0,n=0,o=s[0];for(;void 0!==o;){if(r===o.index){let t;2===o.type?t=new X(i,i.nextSibling,this,e):1===o.type?t=new o.ctor(i,o.name,o.strings,this,e):6===o.type&&(t=new ie(i,this,e)),this._$AV.push(t),o=s[++n]}r!==o?.index&&(i=Y.nextNode(),r++)}return Y.currentNode=M,a}p(e){let t=0;for(const s of this._$AV)void 0!==s&&(void 0!==s.strings?(s._$AI(e,s,t),t+=s.strings.length-2):s._$AI(e[t])),t++}}class X{get _$AU(){return this._$AM?._$AU??this._$Cv}constructor(e,t,s,a){this.type=2,this._$AH=q,this._$AN=void 0,this._$AA=e,this._$AB=t,this._$AM=s,this.options=a,this._$Cv=a?.isConnected??!0}get parentNode(){let e=this._$AA.parentNode;const t=this._$AM;return void 0!==t&&11===e?.nodeType&&(e=t.parentNode),e}get startNode(){return this._$AA}get endNode(){return this._$AB}_$AI(e,t=this){e=Z(this,e,t),D(e)?e===q||null==e||""===e?(this._$AH!==q&&this._$AR(),this._$AH=q):e!==this._$AH&&e!==W&&this._(e):void 0!==e._$litType$?this.$(e):void 0!==e.nodeType?this.T(e):(e=>P(e)||"function"==typeof e?.[Symbol.iterator])(e)?this.k(e):this._(e)}O(e){return this._$AA.parentNode.insertBefore(e,this._$AB)}T(e){this._$AH!==e&&(this._$AR(),this._$AH=this.O(e))}_(e){this._$AH!==q&&D(this._$AH)?this._$AA.nextSibling.data=e:this.T(M.createTextNode(e)),this._$AH=e}$(e){const{values:t,_$litType$:s}=e,a="number"==typeof s?this._$AC(e):(void 0===s.el&&(s.el=J.createElement(G(s.h,s.h[0]),this.options)),s);if(this._$AH?._$AD===a)this._$AH.p(t);else{const e=new Q(a,this),s=e.u(this.options);e.p(t),this.T(s),this._$AH=e}}_$AC(e){let t=V.get(e.strings);return void 0===t&&V.set(e.strings,t=new J(e)),t}k(e){P(this._$AH)||(this._$AH=[],this._$AR());const t=this._$AH;let s,a=0;for(const i of e)a===t.length?t.push(s=new X(this.O(N()),this.O(N()),this,this.options)):s=t[a],s._$AI(i),a++;a<t.length&&(this._$AR(s&&s._$AB.nextSibling,a),t.length=a)}_$AR(e=this._$AA.nextSibling,t){for(this._$AP?.(!1,!0,t);e!==this._$AB;){const t=k(e).nextSibling;k(e).remove(),e=t}}setConnected(e){void 0===this._$AM&&(this._$Cv=e,this._$AP?.(e))}}class ee{get tagName(){return this.element.tagName}get _$AU(){return this._$AM._$AU}constructor(e,t,s,a,i){this.type=1,this._$AH=q,this._$AN=void 0,this.element=e,this.name=t,this._$AM=a,this.options=i,s.length>2||""!==s[0]||""!==s[1]?(this._$AH=Array(s.length-1).fill(new String),this.strings=s):this._$AH=q}_$AI(e,t=this,s,a){const i=this.strings;let r=!1;if(void 0===i)e=Z(this,e,t,0),r=!D(e)||e!==this._$AH&&e!==W,r&&(this._$AH=e);else{const a=e;let n,o;for(e=i[0],n=0;n<i.length-1;n++)o=Z(this,a[s+n],t,n),o===W&&(o=this._$AH[n]),r||=!D(o)||o!==this._$AH[n],o===q?e=q:e!==q&&(e+=(o??"")+i[n+1]),this._$AH[n]=o}r&&!a&&this.j(e)}j(e){e===q?this.element.removeAttribute(this.name):this.element.setAttribute(this.name,e??"")}}class te extends ee{constructor(){super(...arguments),this.type=3}j(e){this.element[this.name]=e===q?void 0:e}}class se extends ee{constructor(){super(...arguments),this.type=4}j(e){this.element.toggleAttribute(this.name,!!e&&e!==q)}}class ae extends ee{constructor(e,t,s,a,i){super(e,t,s,a,i),this.type=5}_$AI(e,t=this){if((e=Z(this,e,t,0)??q)===W)return;const s=this._$AH,a=e===q&&s!==q||e.capture!==s.capture||e.once!==s.once||e.passive!==s.passive,i=e!==q&&(s===q||a);a&&this.element.removeEventListener(this.name,this,s),i&&this.element.addEventListener(this.name,this,e),this._$AH=e}handleEvent(e){"function"==typeof this._$AH?this._$AH.call(this.options?.host??this.element,e):this._$AH.handleEvent(e)}}class ie{constructor(e,t,s){this.element=e,this.type=6,this._$AN=void 0,this._$AM=t,this.options=s}get _$AU(){return this._$AM._$AU}_$AI(e){Z(this,e)}}const re=w.litHtmlPolyfillSupport;re?.(J,X),(w.litHtmlVersions??=[]).push("3.3.2");const ne=globalThis;class oe extends ${constructor(){super(...arguments),this.renderOptions={host:this},this._$Do=void 0}createRenderRoot(){const e=super.createRenderRoot();return this.renderOptions.renderBefore??=e.firstChild,e}update(e){const t=this.render();this.hasUpdated||(this.renderOptions.isConnected=this.isConnected),super.update(e),this._$Do=((e,t,s)=>{const a=s?.renderBefore??t;let i=a._$litPart$;if(void 0===i){const e=s?.renderBefore??null;a._$litPart$=i=new X(t.insertBefore(N(),e),e,void 0,s??{})}return i._$AI(e),i})(t,this.renderRoot,this.renderOptions)}connectedCallback(){super.connectedCallback(),this._$Do?.setConnected(!0)}disconnectedCallback(){super.disconnectedCallback(),this._$Do?.setConnected(!1)}render(){return W}}oe._$litElement$=!0,oe.finalized=!0,ne.litElementHydrateSupport?.({LitElement:oe});const le=ne.litElementPolyfillSupport;le?.({LitElement:oe}),(ne.litElementVersions??=[]).push("4.2.2");const de={attribute:!0,type:String,converter:y,reflect:!1,hasChanged:x},ce=(e=de,t,s)=>{const{kind:a,metadata:i}=s;let r=globalThis.litPropertyMetadata.get(i);if(void 0===r&&globalThis.litPropertyMetadata.set(i,r=new Map),"setter"===a&&((e=Object.create(e)).wrapped=!0),r.set(s.name,e),"accessor"===a){const{name:a}=s;return{set(s){const i=t.get.call(this);t.set.call(this,s),this.requestUpdate(a,i,e,!0,s)},init(t){return void 0!==t&&this.C(a,void 0,e,t),t}}}if("setter"===a){const{name:a}=s;return function(s){const i=this[a];t.call(this,s),this.requestUpdate(a,i,e,!0,s)}}throw Error("Unsupported decorator location: "+a)};function he(e){return(t,s)=>"object"==typeof s?ce(e,t,s):((e,t,s)=>{const a=t.hasOwnProperty(s);return t.constructor.createProperty(s,e),a?Object.getOwnPropertyDescriptor(t,s):void 0})(e,t,s)}function pe(e){return he({...e,state:!0,attribute:!1})}async function ue(e){return e.callWS({type:"eon_next/backfill_status"})}async function fe(e,t,s=7){return e.callWS({type:"eon_next/consumption_history",meter_serial:t,days:s})}class ge{constructor(e,t){this._host=e,this._fetcher=t,this.data=null,this.loading=!0,this.refreshing=!1,this.error=null,this._requestSeq=0,this._lastConnection=void 0,this._started=!1,this._host.addController(this)}hostConnected(){this._startTimer()}hostUpdated(){const e=this._host.hass;e&&(this._started?this._lastConnection!==e.connection&&(this._lastConnection=e.connection,this._fetch(e)):(this._started=!0,this._fetch(e)))}async refresh(){const e=this._host.hass;e&&await this._fetch(e)}_startTimer(){this._stopTimer(),this._timer=setInterval(()=>{const e=this._host.hass;e&&this._fetch(e)},3e5)}_stopTimer(){void 0!==this._timer&&(clearInterval(this._timer),this._timer=void 0)}async _fetch(e){const t=++this._requestSeq;this._lastConnection=e.connection,null===this.data?this.loading=!0:this.refreshing=!0,this.error=null,this._host.requestUpdate();try{const s=await this._fetcher(e);if(t!==this._requestSeq)return;this.data=s}catch(e){if(t!==this._requestSeq)return;this.error=e instanceof Error?e.message:String(e)}finally{t===this._requestSeq&&(this.loading=!1,this.refreshing=!1,this._host.requestUpdate())}}hostDisconnected(){this._stopTimer(),this._requestSeq++,this.data=null,this.loading=!0,this.refreshing=!1,this._lastConnection=void 0,this._started=!1}}function ve(e){let t=0,s=0;for(const a of e?.meters??[]){const e=Math.max(0,(a.days_completed??0)+(a.days_remaining??0));t+=a.done?e:Math.max(0,a.days_completed??0),s+=e}let a=null;return s>0?a=Math.round(t/s*100):e&&e.total_meters>0&&(a=Math.round(e.completed_meters/e.total_meters*100)),{doneDays:t,totalDays:s,pct:a}}function me(e,t){return e?e.meters.find(e=>be(e.type)===t)??null:null}function be(e){return"gas"===e?"gas":"electricity"}const ye={electricity:{label:"Electricity",icon:"mdi:lightning-bolt",tileClass:"tile--elec",usageColor:"var(--eon-elec)",standColor:"var(--eon-elec-standing)"},gas:{label:"Gas",icon:"mdi:fire",tileClass:"tile--gas",usageColor:"var(--eon-gas)",standColor:"var(--eon-gas-standing)"}};function xe(e){return e.toLowerCase().replace(/[^a-z0-9]+/g,"_").replace(/^_+|_+$/g,"")}const _e=new WeakMap;function $e(e,t,s){let a=_e.get(e);if(a||(a=new Map,_e.set(e,a)),a.has(t))return a.get(t)??null;const i=s();return a.set(t,i),i}function we(e,t,s,a){if(!e?.states||!s)return null;const i=e.states;return $e(i,`${t}|${s}|${a}`,()=>{const e=`${t}.${xe(s)}_${a}`,r=i[e];if(r)return r;const n=xe(s),o=`_${a}`;for(const[e,s]of Object.entries(i))if(e.startsWith(`${t}.`)&&e.includes(n)&&e.endsWith(o))return s;return null})}function ke(e){if(!e)return null;const t=Number(e.state);return Number.isFinite(t)?t:null}function Ce(e,t,s){const a=we(e,"sensor",t,s);return{rate:ke(a),validFrom:Ae(a,"valid_from"),validTo:Ae(a,"valid_to")}}function Ae(e,t){const s=e?.attributes?.[t];return"string"==typeof s&&""!==s?s:null}function Se(e,t){const s=we(e,"event",t,"current_day_rates"),a=s?.attributes?.rates;if(!Array.isArray(a))return[];const i=[];for(const e of a){if(!e||"object"!=typeof e)continue;const t=e,s=Number(t.rate);Number.isFinite(s)&&i.push({start:"string"==typeof t.start?t.start:"",end:"string"==typeof t.end?t.end:"",rate:s,isOffPeak:!0===t.is_off_peak})}return i}function Te(e,t){const s=we(e,"binary_sensor",t,"off_peak");return null!=s&&"unavailable"!==s.state&&"unknown"!==s.state}function Ee(e,t=2){return null!=e&&Number.isFinite(e)?`£${e.toFixed(t)}`:"-"}function ze(e,t=2){return null!=e&&Number.isFinite(e)?`${(100*e).toFixed(t)}p`:"-"}function Me(e){return null!=e&&Number.isFinite(e)?`£${e.toFixed(4)}`:"-"}function Ne(e,t="en"){if(!e)return"-";const s=new Date(e.length<=10?`${e}T00:00:00`:e);return isNaN(s.getTime())?e:s.toLocaleDateString(t,{day:"numeric",month:"short"})}function De(e,t,s,a,i="en"){const r=t??0,n=s??0,o=e.map(e=>{const t=!0===e.split_available&&null!=e.peak_cost&&null!=e.offpeak_cost,s=t?Math.max(0,e.offpeak_cost):0,a=t?Math.max(0,e.peak_cost):0,i=t?s+a:Math.max(0,e.consumption)*r;return{date:e.date,usageCost:i,offpeakCost:s,peakCost:a,split:t,standCost:n,missing:!0===e.missing}}),l=Math.max(1e-4,...o.map(e=>e.usageCost+e.standCost));return o.map((t,s)=>({usagePct:t.usageCost/l*100,standPct:t.standCost/l*100,usageCost:t.usageCost,standCost:t.standCost,splitAvailable:t.split,offpeakPct:t.split?t.offpeakCost/l*100:void 0,peakPct:t.split?t.peakCost/l*100:void 0,offpeakCost:t.split?t.offpeakCost:void 0,peakCost:t.split?t.peakCost:void 0,missing:t.missing,label:Pe(t.date,s,e.length,a,i)}))}function Pe(e,t,s,a,i){const r=new Date(`${e}T00:00:00`);if(isNaN(r.getTime()))return"";if(a<=14)return r.toLocaleDateString(i,{weekday:"short"});return t%(a<=31?5:15)!==0&&t!==s-1?"":r.toLocaleDateString(i,{day:"numeric",month:"short"})}function He(e,t,s,a){const i=t??0,r=s??0,n=a.getFullYear(),o=a.getMonth(),l=new Date(n,o-1,1),d=l.getFullYear(),c=l.getMonth();let h=0,p=0,u=0,f=0;for(const t of e){const e=new Date(`${t.date}T00:00:00`);if(isNaN(e.getTime()))continue;const s=Math.max(0,t.consumption)*i+r;e.getFullYear()===n&&e.getMonth()===o?(h+=s,p++):e.getFullYear()===d&&e.getMonth()===c&&(u+=s,f++)}return{monthToDate:Oe(h),daysWithData:p,previousMonth:f>0?Oe(u):null}}function Oe(e){return Math.round(100*e)/100}const je=[{page:"overview",label:"Overview",icon:"mdi:view-grid-outline"},{page:"elec",label:"Electricity",icon:"mdi:lightning-bolt"},{page:"gas",label:"Gas",icon:"mdi:fire"},{page:"tariff",label:"Tariff & rates",icon:"mdi:tag-outline"},{page:"ev",label:"EV charging",icon:"mdi:ev-station"}],Ue={overview:"Overview",elec:"Electricity",gas:"Gas",tariff:"Tariff & rates",ev:"EV charging",settings:"Settings"},Re=n`/*
  * Design tokens for the redesigned EON Next dashboard.
  *
  * These are the final, brand-specific colours, radii and fonts from the design
@@ -77,7 +77,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   --eon-radius-control: 12px;
   --eon-radius-tile: 10px;
 }
-`,Re=n`:host {
+`,Le=n`:host {
   display: block;
 }
 
@@ -155,7 +155,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   overflow: visible;
   white-space: nowrap;
 }
-`;class Le extends oe{constructor(){super(...arguments),this.bars=[],this.usageColor="var(--eon-elec)",this.standColor="var(--eon-elec-standing)",this.offpeakColor="var(--eon-green-light)",this.height=240,this.maxBarWidth=22,this.showLabels=!0}render(){const e=Math.max(1,Math.min(5,Math.floor(150/Math.max(1,this.bars.length-1))));return I`
+`;class Fe extends oe{constructor(){super(...arguments),this.bars=[],this.usageColor="var(--eon-elec)",this.standColor="var(--eon-elec-standing)",this.offpeakColor="var(--eon-green-light)",this.height=240,this.maxBarWidth=22,this.showLabels=!0}render(){const e=Math.max(1,Math.min(5,Math.floor(150/Math.max(1,this.bars.length-1))));return I`
       <div
         class="bars"
         style="height:${this.height}px;gap:${e}px"
@@ -175,7 +175,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         >
           <div class="stack stack--missing"></div>
         </div>
-      `;const t=!0===e.splitAvailable&&void 0!==e.peakPct&&void 0!==e.offpeakPct,s=t?`${Te(e.usageCost+e.standCost)} · peak ${Te(e.peakCost??0)} + off-peak ${Te(e.offpeakCost??0)} + standing ${Te(e.standCost)}`:`${Te(e.usageCost+e.standCost)} · usage ${Te(e.usageCost)} + standing ${Te(e.standCost)}`,a=t?I`
+      `;const t=!0===e.splitAvailable&&void 0!==e.peakPct&&void 0!==e.offpeakPct,s=t?`${Ee(e.usageCost+e.standCost)} · peak ${Ee(e.peakCost??0)} + off-peak ${Ee(e.offpeakCost??0)} + standing ${Ee(e.standCost)}`:`${Ee(e.usageCost+e.standCost)} · usage ${Ee(e.usageCost)} + standing ${Ee(e.standCost)}`,a=t?I`
           <div
             class="seg seg--usage"
             style="height:${e.peakPct}%;background:${this.usageColor}"
@@ -199,7 +199,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           ></div>
         </div>
       </div>
-    `}}Le.styles=[Ue,Re],e([he({type:Array})],Le.prototype,"bars",void 0),e([he()],Le.prototype,"usageColor",void 0),e([he()],Le.prototype,"standColor",void 0),e([he()],Le.prototype,"offpeakColor",void 0),e([he({type:Number})],Le.prototype,"height",void 0),e([he({type:Number})],Le.prototype,"maxBarWidth",void 0),e([he({type:Boolean})],Le.prototype,"showLabels",void 0),customElements.get("eon-stacked-bar-chart")||customElements.define("eon-stacked-bar-chart",Le);const Fe=n`/* Shared building blocks for the redesigned dashboard pages. */
+    `}}Fe.styles=[Re,Le],e([he({type:Array})],Fe.prototype,"bars",void 0),e([he()],Fe.prototype,"usageColor",void 0),e([he()],Fe.prototype,"standColor",void 0),e([he()],Fe.prototype,"offpeakColor",void 0),e([he({type:Number})],Fe.prototype,"height",void 0),e([he({type:Number})],Fe.prototype,"maxBarWidth",void 0),e([he({type:Boolean})],Fe.prototype,"showLabels",void 0),customElements.get("eon-stacked-bar-chart")||customElements.define("eon-stacked-bar-chart",Fe);const Be=n`/* Shared building blocks for the redesigned dashboard pages. */
 
 :host {
   display: block;
@@ -428,7 +428,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   padding: 24px 0;
   text-align: center;
 }
-`,Be=n`.greeting {
+`,Ie=n`.greeting {
   font-size: 13px;
   color: var(--eon-muted);
   margin-top: -6px;
@@ -682,7 +682,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   height: 100%;
   background: var(--eon-green);
 }
-`;class Ie extends oe{constructor(){super(...arguments),this.summary=null,this.refreshToken=0,this.showProjection=!0,this.showStandingCallout=!0,this.showMeterHealth=!0,this._history={},this._backfill=new fe(this,e=>ue(e)),this._fetchedToken=-1,this._fetching=new Set}updated(){if(!this.hass||!this.summary)return;this.refreshToken!==this._fetchedToken&&(this._fetchedToken=this.refreshToken,this._history={},this._fetching.clear());const e=(new Date).getDate(),t=Math.min(62,e+31);for(const e of this.summary.meters){const s=e.serial;!s||this._history[s]||this._fetching.has(s)||this._fetch(s,t)}}async _fetch(e,t){this._fetching.add(e);try{const s=await ge(this.hass,e,t);this._history={...this._history,[e]:s.entries}}catch{this._history={...this._history,[e]:[]}}finally{this._fetching.delete(e)}}_split(e){return e?.serial?function(e,t,s,a){const i=t??0,r=s??0,n=a.getFullYear(),o=a.getMonth();let l=0,d=0,c=0;for(const t of e){const e=new Date(`${t.date}T00:00:00`);isNaN(e.getTime())||e.getFullYear()===n&&e.getMonth()===o&&(l+=Math.max(0,t.consumption)*i,d+=r,c++)}return{usage:He(l),standing:He(d),total:He(l+d),days:c}}(this._history[e.serial]??[],e.unit_rate,e.standing_charge,new Date):{usage:0,standing:0,total:0,days:0}}_nav(e){this.dispatchEvent(new CustomEvent("navigate",{detail:{page:e},bubbles:!0,composed:!0}))}render(){if(!this.summary)return I`<div class="placeholder">Loading…</div>`;const e=new Date,t=this.hass?.language??"en",s=me(this.summary,"electricity"),a=me(this.summary,"gas"),i=this._split(s),r=this._split(a),n=He(i.usage+r.usage),o=He(i.standing+r.standing),l=He(n+o),d=e.toLocaleDateString(t,{month:"long"}),c=Math.max(i.days,r.days,e.getDate()),h=c>0?He(l/c):0;return I`
+`;class We extends oe{constructor(){super(...arguments),this.summary=null,this.refreshToken=0,this.showProjection=!0,this.showStandingCallout=!0,this.showMeterHealth=!0,this._history={},this._backfill=new ge(this,e=>ue(e)),this._fetchedToken=-1,this._fetching=new Set}updated(){if(!this.hass||!this.summary)return;this.refreshToken!==this._fetchedToken&&(this._fetchedToken=this.refreshToken,this._history={},this._fetching.clear());const e=(new Date).getDate(),t=Math.min(62,e+31);for(const e of this.summary.meters){const s=e.serial;!s||this._history[s]||this._fetching.has(s)||this._fetch(s,t)}}async _fetch(e,t){this._fetching.add(e);try{const s=await fe(this.hass,e,t);this._history={...this._history,[e]:s.entries}}catch{this._history={...this._history,[e]:[]}}finally{this._fetching.delete(e)}}_split(e){return e?.serial?function(e,t,s,a){const i=t??0,r=s??0,n=a.getFullYear(),o=a.getMonth();let l=0,d=0,c=0;for(const t of e){const e=new Date(`${t.date}T00:00:00`);isNaN(e.getTime())||e.getFullYear()===n&&e.getMonth()===o&&(l+=Math.max(0,t.consumption)*i,d+=r,c++)}return{usage:Oe(l),standing:Oe(d),total:Oe(l+d),days:c}}(this._history[e.serial]??[],e.unit_rate,e.standing_charge,new Date):{usage:0,standing:0,total:0,days:0}}_nav(e){this.dispatchEvent(new CustomEvent("navigate",{detail:{page:e},bubbles:!0,composed:!0}))}render(){if(!this.summary)return I`<div class="placeholder">Loading…</div>`;const e=new Date,t=this.hass?.language??"en",s=me(this.summary,"electricity"),a=me(this.summary,"gas"),i=this._split(s),r=this._split(a),n=Oe(i.usage+r.usage),o=Oe(i.standing+r.standing),l=Oe(n+o),d=e.toLocaleDateString(t,{month:"long"}),c=Math.max(i.days,r.days,e.getDate()),h=c>0?Oe(l/c):0;return I`
       <div class="page">
         <div class="greeting">
           ${function(e){const t=e.getHours();return t<12?"Good morning":t<18?"Good afternoon":"Good evening"}(e)} ·
@@ -700,10 +700,10 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
             <div class="muted hero-label">
               Spent so far in ${e} · gas + electricity
             </div>
-            <div class="serif hero-total">${Te(t)}</div>
+            <div class="serif hero-total">${Ee(t)}</div>
             <div class="hero-sub">
               ${i} day${1===i?"":"s"} in · about
-              <b>${Te(r)}</b> a day
+              <b>${Ee(r)}</b> a day
             </div>
           </div>
           ${this._renderProjection(t)}
@@ -723,30 +723,30 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           <div class="legend split-legend">
             <span class="legend-item">
               <span class="legend-swatch" style="background:var(--eon-elec)"></span>
-              Energy used <b class="split-val">${Te(s)}</b>
+              Energy used <b class="split-val">${Ee(s)}</b>
             </span>
             <span class="legend-item">
               <span
                 class="legend-swatch"
                 style="background:var(--eon-elec-standing)"
               ></span>
-              Standing charge <b class="split-val">${Te(a)}</b>
+              Standing charge <b class="split-val">${Ee(a)}</b>
             </span>
           </div>
           ${this.showStandingCallout&&l>=.4&&a>0?I`<div class="callout hero-callout">
                   ${l>=.5?"Over half":"A large part"} of this month's bill
                   -
-                  <b>${Te(a)}</b> - is the fixed daily standing charge
+                  <b>${Ee(a)}</b> - is the fixed daily standing charge
                   you pay before using anything.
                 </div>`:q}
         </div>
       </div>
-    `}_renderProjection(e){if(!this.showProjection)return q;const t=new Date,s=function(e,t){const s=t.getDate(),a=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();return s<=0?e:He(e/s*a)}(e,t),a=this.summary?.meters??[];let i=0,r=a.length>0;for(const e of a){const s=e.serial?this._history[e.serial]??null:null,a=s?Pe(s,e.unit_rate,e.standing_charge,t).previousMonth:null;if(null==a){r=!1;break}i+=a}const n=r?He(s-He(i)):null;return I`
+    `}_renderProjection(e){if(!this.showProjection)return q;const t=new Date,s=function(e,t){const s=t.getDate(),a=new Date(t.getFullYear(),t.getMonth()+1,0).getDate();return s<=0?e:Oe(e/s*a)}(e,t),a=this.summary?.meters??[];let i=0,r=a.length>0;for(const e of a){const s=e.serial?this._history[e.serial]??null:null,a=s?He(s,e.unit_rate,e.standing_charge,t).previousMonth:null;if(null==a){r=!1;break}i+=a}const n=r?Oe(s-Oe(i)):null;return I`
       <div class="projection">
         <div class="muted proj-label">On track for</div>
-        <div class="serif proj-value">~${Te(s)}</div>
+        <div class="serif proj-value">~${Ee(s)}</div>
         ${null!=n?I`<span class="pill pill--green proj-pill">
-                ${n<=0?"▼":"▲"} ${Te(Math.abs(n))} vs last month
+                ${n<=0?"▼":"▲"} ${Ee(Math.abs(n))} vs last month
               </span>`:q}
       </div>
     `}_renderFuelCards(e,t,s,a){return I`
@@ -771,7 +771,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
               <div class="mono fuel-serial">${t.serial??"-"}</div>
             </div>
           </div>
-          <div class="serif fuel-cost">${Te(s.total)}</div>
+          <div class="serif fuel-cost">${Ee(s.total)}</div>
         </div>
         ${i.length?I`<eon-stacked-bar-chart
                 class="fuel-chart"
@@ -783,8 +783,8 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
                 .showLabels=${!1}
               ></eon-stacked-bar-chart>`:I`<div class="fuel-chart-empty"></div>`}
         <div class="fuel-foot muted">
-          <span>${Ee(t.unit_rate)} /kWh</span>
-          <span>${Ee(t.standing_charge,0)} /day standing</span>
+          <span>${ze(t.unit_rate)} /kWh</span>
+          <span>${ze(t.standing_charge,0)} /day standing</span>
         </div>
       </button>
     `}_renderTariffAndHealth(e,t){return I`
@@ -792,7 +792,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         ${this._renderTariffCard(e,t)}
         ${this.showMeterHealth?this._renderHealthCard(e??t):q}
       </div>
-    `}_renderTariffCard(e,t){const s=e?.tariff_name??t?.tariff_name??"Tariff unavailable",a=Se(this.hass,e?.serial??null)||Se(this.hass,t?.serial??null);return I`
+    `}_renderTariffCard(e,t){const s=e?.tariff_name??t?.tariff_name??"Tariff unavailable",a=Te(this.hass,e?.serial??null)||Te(this.hass,t?.serial??null);return I`
       <button
         class="card card--dark tariff-card card--clickable"
         @click=${()=>this._nav("tariff")}
@@ -806,11 +806,11 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         </div>
         <div class="tariff-stats">
           <div>
-            <div class="tariff-stat-value">${ze(e?.unit_rate)}</div>
+            <div class="tariff-stat-value">${Me(e?.unit_rate)}</div>
             <div class="tariff-stat-label">Electricity /kWh</div>
           </div>
           <div>
-            <div class="tariff-stat-value">${ze(t?.unit_rate)}</div>
+            <div class="tariff-stat-value">${Me(t?.unit_rate)}</div>
             <div class="tariff-stat-label">Gas /kWh</div>
           </div>
           <div class="tariff-note">
@@ -823,7 +823,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           </div>
         </div>
       </button>
-    `}_renderHealthCard(e){const t=this.hass?.language??"en",s=this._backfill.data,a=ve(s).pct??(!1===s?.enabled?0:100),i=this.summary?.meters.length??0,r=null!=e?.latest_reading?`${e.latest_reading.toLocaleString(t)} · ${Me(e.latest_reading_date,t)}`:"-";return I`
+    `}_renderHealthCard(e){const t=this.hass?.language??"en",s=this._backfill.data,a=ve(s).pct??(!1===s?.enabled?0:100),i=this.summary?.meters.length??0,r=null!=e?.latest_reading?`${e.latest_reading.toLocaleString(t)} · ${Ne(e.latest_reading_date,t)}`:"-";return I`
       <div class="card health-card">
         <div class="health-head">
           <div class="health-title">Meter health</div>
@@ -849,7 +849,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           </div>
         </div>
       </div>
-    `}}Ie.styles=[Ue,Fe,Be],e([he({attribute:!1})],Ie.prototype,"hass",void 0),e([he({attribute:!1})],Ie.prototype,"summary",void 0),e([he({type:Number})],Ie.prototype,"refreshToken",void 0),e([he({type:Boolean})],Ie.prototype,"showProjection",void 0),e([he({type:Boolean})],Ie.prototype,"showStandingCallout",void 0),e([he({type:Boolean})],Ie.prototype,"showMeterHealth",void 0),e([pe()],Ie.prototype,"_history",void 0),customElements.get("eon-overview-page")||customElements.define("eon-overview-page",Ie);const We=n`.range-picker {
+    `}}We.styles=[Re,Be,Ie],e([he({attribute:!1})],We.prototype,"hass",void 0),e([he({attribute:!1})],We.prototype,"summary",void 0),e([he({type:Number})],We.prototype,"refreshToken",void 0),e([he({type:Boolean})],We.prototype,"showProjection",void 0),e([he({type:Boolean})],We.prototype,"showStandingCallout",void 0),e([he({type:Boolean})],We.prototype,"showMeterHealth",void 0),e([pe()],We.prototype,"_history",void 0),customElements.get("eon-overview-page")||customElements.define("eon-overview-page",We);const qe=n`.range-picker {
   display: inline-flex;
   gap: 0;
   border-radius: 8px;
@@ -891,7 +891,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   background: var(--eon-dark, var(--eon-primary));
   color: var(--eon-on-dark, #fff);
 }
-`,qe=[{label:"7d",value:7},{label:"30d",value:30},{label:"90d",value:90},{label:"1y",value:365}];class Ve extends oe{constructor(){super(...arguments),this.value=7,this.options=qe}render(){const e=this.options.findIndex(e=>e.value===this.value),t=e>=0?e:0;return I`
+`,Ve=[{label:"7d",value:7},{label:"30d",value:30},{label:"90d",value:90},{label:"1y",value:365}];class Ye extends oe{constructor(){super(...arguments),this.value=7,this.options=Ve}render(){const e=this.options.findIndex(e=>e.value===this.value),t=e>=0?e:0;return I`
       <div class="range-picker" role="radiogroup" aria-label="Time range">
         ${this.options.map((e,s)=>I`
             <button
@@ -907,7 +907,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
             </button>
           `)}
       </div>
-    `}_select(e){e!==this.value&&(this.value=e,this.dispatchEvent(new CustomEvent("range-changed",{detail:{value:e},bubbles:!0,composed:!0})))}_onKeydown(e,t){let s=null;if("ArrowLeft"===e.key||"ArrowUp"===e.key?s=(t-1+this.options.length)%this.options.length:"ArrowRight"===e.key||"ArrowDown"===e.key?s=(t+1)%this.options.length:"Home"===e.key?s=0:"End"===e.key?s=this.options.length-1:" "!==e.key&&"Enter"!==e.key||(s=t),null==s)return;e.preventDefault();const a=this.options[s]?.value;null!=a&&(this._select(a),this.updateComplete.then(()=>{const e=this.renderRoot.querySelectorAll(".range-btn");e[s]?.focus()}))}}Ve.styles=[We],e([he({type:Number})],Ve.prototype,"value",void 0),e([he({type:Array})],Ve.prototype,"options",void 0),customElements.get("eon-range-picker")||customElements.define("eon-range-picker",Ve);const Ye=n`.detail-header {
+    `}_select(e){e!==this.value&&(this.value=e,this.dispatchEvent(new CustomEvent("range-changed",{detail:{value:e},bubbles:!0,composed:!0})))}_onKeydown(e,t){let s=null;if("ArrowLeft"===e.key||"ArrowUp"===e.key?s=(t-1+this.options.length)%this.options.length:"ArrowRight"===e.key||"ArrowDown"===e.key?s=(t+1)%this.options.length:"Home"===e.key?s=0:"End"===e.key?s=this.options.length-1:" "!==e.key&&"Enter"!==e.key||(s=t),null==s)return;e.preventDefault();const a=this.options[s]?.value;null!=a&&(this._select(a),this.updateComplete.then(()=>{const e=this.renderRoot.querySelectorAll(".range-btn");e[s]?.focus()}))}}Ye.styles=[qe],e([he({type:Number})],Ye.prototype,"value",void 0),e([he({type:Array})],Ye.prototype,"options",void 0),customElements.get("eon-range-picker")||customElements.define("eon-range-picker",Ye);const Ge=n`.detail-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -1017,14 +1017,14 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
 .split-tile--peak {
   border-left-color: var(--eon-elec);
 }
-`;class Ge extends oe{constructor(){super(...arguments),this.meter=null,this.refreshToken=0,this._days=30,this._history=[],this._loading=!0,this._fetchedSerial=null,this._fetchedDays=0,this._fetchedToken=-1,this._requestId=0,this._memoHistory=null,this._memoDays=-1,this._memoRate=void 0,this._memoStanding=void 0,this._memoBars=[],this._memoMonthToDate=0,this._memoSplit=null}get kind(){return be(this.meter?.type??null)}updated(e){if(!this.hass||!this.meter?.serial)return;const t=this._daysToFetch();(this.meter.serial!==this._fetchedSerial||t!==this._fetchedDays||this.refreshToken!==this._fetchedToken||e.has("meter"))&&this._fetch(t)}_daysToFetch(){const e=(new Date).getDate();return Math.max(this._days,e)}async _fetch(e){this._fetchedSerial=this.meter.serial,this._fetchedDays=e,this._fetchedToken=this.refreshToken,this._loading=!0;const t=++this._requestId;try{const s=await ge(this.hass,this.meter.serial,e);if(t!==this._requestId)return;this._history=s.entries}catch{if(t!==this._requestId)return;this._history=[]}this._loading=!1}_onRange(e){this._days=e.detail.value}_ensureComputed(){const e=this.meter?.unit_rate,t=this.meter?.standing_charge;if(this._memoHistory===this._history&&this._memoDays===this._days&&this._memoRate===e&&this._memoStanding===t)return;this._memoHistory=this._history,this._memoDays=this._days,this._memoRate=e,this._memoStanding=t;const s=this.hass?.language??"en",a=this._history.slice(-this._days);this._memoBars=this._days>=365?function(e,t,s,a="en"){const i=t??0,r=s??0,n=new Map;for(const t of e){const e=new Date(`${t.date}T00:00:00`);if(isNaN(e.getTime()))continue;const s=`${e.getFullYear()}-${e.getMonth()}`,a=n.get(s)??{kwh:0,days:0,realDays:0,date:new Date(e.getFullYear(),e.getMonth(),1)};a.kwh+=Math.max(0,t.consumption),a.days+=1,!0!==t.missing&&(a.realDays+=1),n.set(s,a)}const o=[...n.values()].sort((e,t)=>e.date.getTime()-t.date.getTime()),l=o.map(e=>({date:e.date,usageCost:e.kwh*i,standCost:e.days*r,missing:0===e.realDays})),d=Math.max(1e-4,...l.map(e=>e.usageCost+e.standCost));return l.map(e=>({usagePct:e.usageCost/d*100,standPct:e.standCost/d*100,usageCost:e.usageCost,standCost:e.standCost,missing:e.missing,label:e.date.toLocaleDateString(a,{month:"narrow"})}))}(this._history,e,t,s):De(a,e,t,this._days,s),this._memoSplit=function(e){const t={days:0,offpeakKwh:0,peakKwh:0,offpeakCost:0,peakCost:0};for(const s of e)!0===s.split_available&&null!=s.peak_cost&&null!=s.offpeak_cost&&(t.days+=1,t.offpeakKwh+=Math.max(0,s.offpeak_kwh??0),t.peakKwh+=Math.max(0,s.peak_kwh??0),t.offpeakCost+=Math.max(0,s.offpeak_cost),t.peakCost+=Math.max(0,s.peak_cost));return t.days>0?t:null}(this._history),this._memoMonthToDate=Pe(this._history,e,t,new Date).monthToDate}render(){if(!this.meter)return I`<div class="placeholder">No meter available.</div>`;this._ensureComputed();const e=this.kind,t=ye[e],s=Ee(this.meter.standing_charge,0);return I`
+`;class Ke extends oe{constructor(){super(...arguments),this.meter=null,this.refreshToken=0,this._days=30,this._history=[],this._loading=!0,this._fetchedSerial=null,this._fetchedDays=0,this._fetchedToken=-1,this._requestId=0,this._memoHistory=null,this._memoDays=-1,this._memoRate=void 0,this._memoStanding=void 0,this._memoBars=[],this._memoMonthToDate=0,this._memoSplit=null}get kind(){return be(this.meter?.type??null)}updated(e){if(!this.hass||!this.meter?.serial)return;const t=this._daysToFetch();(this.meter.serial!==this._fetchedSerial||t!==this._fetchedDays||this.refreshToken!==this._fetchedToken||e.has("meter"))&&this._fetch(t)}_daysToFetch(){const e=(new Date).getDate();return Math.max(this._days,e)}async _fetch(e){this._fetchedSerial=this.meter.serial,this._fetchedDays=e,this._fetchedToken=this.refreshToken,this._loading=!0;const t=++this._requestId;try{const s=await fe(this.hass,this.meter.serial,e);if(t!==this._requestId)return;this._history=s.entries}catch{if(t!==this._requestId)return;this._history=[]}this._loading=!1}_onRange(e){this._days=e.detail.value}_ensureComputed(){const e=this.meter?.unit_rate,t=this.meter?.standing_charge;if(this._memoHistory===this._history&&this._memoDays===this._days&&this._memoRate===e&&this._memoStanding===t)return;this._memoHistory=this._history,this._memoDays=this._days,this._memoRate=e,this._memoStanding=t;const s=this.hass?.language??"en",a=this._history.slice(-this._days);this._memoBars=this._days>=365?function(e,t,s,a="en"){const i=t??0,r=s??0,n=new Map;for(const t of e){const e=new Date(`${t.date}T00:00:00`);if(isNaN(e.getTime()))continue;const s=`${e.getFullYear()}-${e.getMonth()}`,a=n.get(s)??{kwh:0,days:0,realDays:0,date:new Date(e.getFullYear(),e.getMonth(),1)};a.kwh+=Math.max(0,t.consumption),a.days+=1,!0!==t.missing&&(a.realDays+=1),n.set(s,a)}const o=[...n.values()].sort((e,t)=>e.date.getTime()-t.date.getTime()),l=o.map(e=>({date:e.date,usageCost:e.kwh*i,standCost:e.days*r,missing:0===e.realDays})),d=Math.max(1e-4,...l.map(e=>e.usageCost+e.standCost));return l.map(e=>({usagePct:e.usageCost/d*100,standPct:e.standCost/d*100,usageCost:e.usageCost,standCost:e.standCost,missing:e.missing,label:e.date.toLocaleDateString(a,{month:"narrow"})}))}(this._history,e,t,s):De(a,e,t,this._days,s),this._memoSplit=function(e){const t={days:0,offpeakKwh:0,peakKwh:0,offpeakCost:0,peakCost:0};for(const s of e)!0===s.split_available&&null!=s.peak_cost&&null!=s.offpeak_cost&&(t.days+=1,t.offpeakKwh+=Math.max(0,s.offpeak_kwh??0),t.peakKwh+=Math.max(0,s.peak_kwh??0),t.offpeakCost+=Math.max(0,s.offpeak_cost),t.peakCost+=Math.max(0,s.peak_cost));return t.days>0?t:null}(this._history),this._memoMonthToDate=He(this._history,e,t,new Date).monthToDate}render(){if(!this.meter)return I`<div class="placeholder">No meter available.</div>`;this._ensureComputed();const e=this.kind,t=ye[e],s=ze(this.meter.standing_charge,0);return I`
       <div class="page">
         ${this._renderHeader(t)}
         ${this._renderChartCard(e,this._memoBars,t,s)}
         ${this._renderSplitSummary()} ${this._renderStats(s)}
         ${this._renderReadingStrip(e)}
       </div>
-    `}_renderHeader(e){const t=Se(this.hass,this.meter?.serial??null),s="gas"===this.kind?"Import · volume m³ → kWh":t?"Import · time-of-use":"Import · single rate";return I`
+    `}_renderHeader(e){const t=Te(this.hass,this.meter?.serial??null),s="gas"===this.kind?"Import · volume m³ → kWh":t?"Import · time-of-use":"Import · single rate";return I`
       <div class="detail-header">
         <div class="meter-id">
           <span class="tile ${e.tileClass}">
@@ -1107,12 +1107,12 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         <div class="grid-2">
           <div class="split-tile split-tile--offpeak">
             <div class="stat-label">Off-peak</div>
-            <div class="stat-value">${Te(e.offpeakCost)}</div>
+            <div class="stat-value">${Ee(e.offpeakCost)}</div>
             <div class="stat-sub">${e.offpeakKwh.toFixed(1)} kWh · ${s}%</div>
           </div>
           <div class="split-tile split-tile--peak">
             <div class="stat-label">Peak</div>
-            <div class="stat-value">${Te(e.peakCost)}</div>
+            <div class="stat-value">${Ee(e.peakCost)}</div>
             <div class="stat-sub">
               ${e.peakKwh.toFixed(1)} kWh · ${100-s}%
             </div>
@@ -1121,9 +1121,9 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
       </div>
     `}_renderStats(e){return I`
       <div class="grid-4">
-        ${this._statCard("This month",Te(this._memoMonthToDate))}
-        ${this._statCard("Yesterday",Te(this.meter?.previous_day_cost))}
-        ${this._statCard("Unit rate",Ee(this.meter?.unit_rate),"per kWh")}
+        ${this._statCard("This month",Ee(this._memoMonthToDate))}
+        ${this._statCard("Yesterday",Ee(this.meter?.previous_day_cost))}
+        ${this._statCard("Unit rate",ze(this.meter?.unit_rate),"per kWh")}
         ${this._statCard("Standing",e,"per day")}
       </div>
     `}_statCard(e,t,s){return I`
@@ -1132,7 +1132,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         <div class="stat-value">${t}</div>
         ${s?I`<div class="stat-sub">${s}</div>`:q}
       </div>
-    `}_renderReadingStrip(e){const t=this.meter?.latest_reading;if(null==t)return q;const s=this.hass?.language??"en",a=`${"gas"===e?"Volume":"Register"} read · ${Me(this.meter?.latest_reading_date,s)}`;return I`
+    `}_renderReadingStrip(e){const t=this.meter?.latest_reading;if(null==t)return q;const s=this.hass?.language??"en",a=`${"gas"===e?"Volume":"Register"} read · ${Ne(this.meter?.latest_reading_date,s)}`;return I`
       <div class="card reading-strip">
         <div>
           <div class="reading-title">Latest meter reading</div>
@@ -1143,7 +1143,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           <span class="reading-unit faint">kWh</span>
         </div>
       </div>
-    `}_rangeLabel(){return{7:"Last 7 days",30:"Last 30 days",90:"Last 90 days",365:"Last 12 months"}[this._days]??`Last ${this._days} days`}}Ge.styles=[Ue,Fe,Ye],e([he({attribute:!1})],Ge.prototype,"hass",void 0),e([he({attribute:!1})],Ge.prototype,"meter",void 0),e([he({type:Number})],Ge.prototype,"refreshToken",void 0),e([pe()],Ge.prototype,"_days",void 0),e([pe()],Ge.prototype,"_history",void 0),e([pe()],Ge.prototype,"_loading",void 0),customElements.get("eon-meter-detail-page")||customElements.define("eon-meter-detail-page",Ge);const Ke=n`:host {
+    `}_rangeLabel(){return{7:"Last 7 days",30:"Last 30 days",90:"Last 90 days",365:"Last 12 months"}[this._days]??`Last ${this._days} days`}}Ke.styles=[Re,Be,Ge],e([he({attribute:!1})],Ke.prototype,"hass",void 0),e([he({attribute:!1})],Ke.prototype,"meter",void 0),e([he({type:Number})],Ke.prototype,"refreshToken",void 0),e([pe()],Ke.prototype,"_days",void 0),e([pe()],Ke.prototype,"_history",void 0),e([pe()],Ke.prototype,"_loading",void 0),customElements.get("eon-meter-detail-page")||customElements.define("eon-meter-detail-page",Ke);const Je=n`:host {
   display: block;
 }
 
@@ -1184,7 +1184,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   font-size: 10px;
   color: var(--eon-faint);
 }
-`;class Je extends oe{constructor(){super(...arguments),this.bars=[],this.height=64,this.nowFraction=null,this.axis=[],this.ariaLabel="Half-hourly chart"}render(){return I`
+`;class Ze extends oe{constructor(){super(...arguments),this.bars=[],this.height=64,this.nowFraction=null,this.axis=[],this.ariaLabel="Half-hourly chart"}render(){return I`
       <div
         class="strip"
         style="height:${this.height}px"
@@ -1202,7 +1202,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
       ${this.axis.length?I`<div class="axis mono">
               ${this.axis.map(e=>I`<span>${e}</span>`)}
             </div>`:q}
-    `}}Je.styles=[Ue,Ke],e([he({type:Array})],Je.prototype,"bars",void 0),e([he({type:Number})],Je.prototype,"height",void 0),e([he({type:Number})],Je.prototype,"nowFraction",void 0),e([he({type:Array})],Je.prototype,"axis",void 0),e([he()],Je.prototype,"ariaLabel",void 0),customElements.get("eon-halfhour-strip")||customElements.define("eon-halfhour-strip",Je);const Ze=n`.chart-title-row {
+    `}}Ze.styles=[Re,Je],e([he({type:Array})],Ze.prototype,"bars",void 0),e([he({type:Number})],Ze.prototype,"height",void 0),e([he({type:Number})],Ze.prototype,"nowFraction",void 0),e([he({type:Array})],Ze.prototype,"axis",void 0),e([he()],Ze.prototype,"ariaLabel",void 0),customElements.get("eon-halfhour-strip")||customElements.define("eon-halfhour-strip",Ze);const Qe=n`.chart-title-row {
   display: flex;
   justify-content: space-between;
   align-items: baseline;
@@ -1246,7 +1246,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
 
 .tariff-hero-stats {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 24px;
   margin-top: 24px;
 }
@@ -1324,12 +1324,12 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   font-weight: 400;
   margin-left: 2px;
 }
-`;class Qe extends oe{constructor(){super(...arguments),this.summary=null}render(){const e=me(this.summary,"electricity"),t=me(this.summary,"gas"),s=Se(this.hass,e?.serial??null)||Se(this.hass,t?.serial??null);return I`
+`;class Xe extends oe{constructor(){super(...arguments),this.summary=null}render(){const e=me(this.summary,"electricity"),t=me(this.summary,"gas"),s=Te(this.hass,e?.serial??null)||Te(this.hass,t?.serial??null);return I`
       <div class="page">
         ${this._renderTariffCard(e,t,s)} ${this._renderRateStrip(e,s)}
         ${this._renderTimelines(e,t)}
       </div>
-    `}_renderTariffCard(e,t,s){const a=this.hass?.language??"en",i=e?.tariff_name??t?.tariff_name??"Tariff unavailable",r=we(this.hass,"sensor",e?.serial??t?.serial??null,"current_tariff"),n=Ae(r,"tariff_valid_from"),o=Ae(r,"tariff_valid_to"),l=Ae(r,"tariff_type"),d=[];return l&&d.push(l),n&&d.push(`started ${Xe(n,a)}`),o&&d.push(`locked until ${Xe(o,a)}`),I`
+    `}_renderTariffCard(e,t,s){const a=this.hass?.language??"en",i=e?.tariff_name??t?.tariff_name??"Tariff unavailable",r=we(this.hass,"sensor",e?.serial??t?.serial??null,"current_tariff"),n=Ae(r,"tariff_valid_from"),o=Ae(r,"tariff_valid_to"),l=Ae(r,"tariff_type"),d=[];l&&d.push(l),n&&d.push(`started ${et(n,a)}`),o&&d.push(`locked until ${et(o,a)}`);const{peak:c,offPeak:h}=function(e){let t=null,s=null;for(const a of e)Number.isFinite(a.rate)&&(a.isOffPeak?s=null===s?a.rate:Math.min(s,a.rate):t=null===t?a.rate:Math.max(t,a.rate));return{peak:t,offPeak:s}}(Se(this.hass,e?.serial??null)),p=s&&null!=c&&null!=h;return I`
       <div class="card card--dark tariff-hero">
         <div class="tariff-hero-head">
           <div>
@@ -1342,28 +1342,36 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           </span>
         </div>
         <div class="tariff-hero-stats">
-          ${this._heroStat("Electricity unit",ze(e?.unit_rate),"per kWh","var(--eon-elec)")}
-          ${this._heroStat("Elec standing",ze(e?.standing_charge),"per day","var(--eon-elec-standing)")}
-          ${this._heroStat("Gas unit",ze(t?.unit_rate),"per kWh","var(--eon-gas)")}
-          ${this._heroStat("Gas standing",ze(t?.standing_charge),"per day","var(--eon-gas-standing)")}
+          ${p?I`
+                  ${this._heroStat("Elec peak",Me(c),"per kWh","var(--eon-elec)")}
+                  ${this._heroStat("Elec off-peak",Me(h),"per kWh","var(--eon-green-light)","var(--eon-green-light)")}
+                `:this._heroStat("Electricity unit",Me(e?.unit_rate),"per kWh","var(--eon-elec)")}
+          ${this._heroStat("Elec standing",Me(e?.standing_charge),"per day","var(--eon-elec-standing)")}
+          ${this._heroStat("Gas unit",Me(t?.unit_rate),"per kWh","var(--eon-gas)")}
+          ${this._heroStat("Gas standing",Me(t?.standing_charge),"per day","var(--eon-gas-standing)")}
         </div>
       </div>
-    `}_heroStat(e,t,s,a){return I`
+    `}_heroStat(e,t,s,a,i){return I`
       <div class="hero-stat" style="border-left-color:${a}">
         <div class="tariff-stat-label">${e}</div>
-        <div class="serif hero-stat-value">${t}</div>
+        <div
+          class="serif hero-stat-value"
+          style=${i?`color:${i}`:""}
+        >
+          ${t}
+        </div>
         <div class="hero-stat-sub">${s}</div>
       </div>
-    `}_renderRateStrip(e,t){const s=function(e,t){const s=we(e,"event",t,"current_day_rates"),a=s?.attributes?.rates;if(!Array.isArray(a))return[];const i=[];for(const e of a){if(!e||"object"!=typeof e)continue;const t=e,s=Number(t.rate);Number.isFinite(s)&&i.push({start:"string"==typeof t.start?t.start:"",end:"string"==typeof t.end?t.end:"",rate:s,isOffPeak:!0===t.is_off_peak})}return i}(this.hass,e?.serial??null),a=function(e,t){const s=[],a=[],i=new Date;i.setHours(0,0,0,0);for(let r=0;r<48;r++){const n=new Date(i.getTime()+30*r*6e4),o=new Date(n.getTime()+9e5);let l=t??0,d=!1;for(const t of e){const e=new Date(t.start),s=new Date(t.end);if(!isNaN(e.getTime())&&!isNaN(s.getTime())&&(o>=e&&o<s)){l=t.rate,d=t.isOffPeak;break}}s.push(l),a.push(d)}const r=Math.min(...s),n=Math.max(...s),o=n-r<1e-6;return s.map((e,t)=>({heightPct:o?72:45+(e-r)/(n-r)*50,color:a[t]?"var(--eon-green-light)":"var(--eon-elec-tile)"}))}(s,e?.unit_rate??null),i=new Date,r=(60*i.getHours()+i.getMinutes())/1440,n=t?"Varies through the day":`Flat · ${Ee(e?.unit_rate)}/kWh all day`;return I`
+    `}_renderRateStrip(e,t){const s=function(e,t){const s=[],a=[],i=new Date;i.setHours(0,0,0,0);for(let r=0;r<48;r++){const n=new Date(i.getTime()+30*r*6e4),o=new Date(n.getTime()+9e5);let l=t??0,d=!1;for(const t of e){const e=new Date(t.start),s=new Date(t.end);if(!isNaN(e.getTime())&&!isNaN(s.getTime())&&(o>=e&&o<s)){l=t.rate,d=t.isOffPeak;break}}s.push(l),a.push(d)}const r=Math.min(...s),n=Math.max(...s),o=n-r<1e-6;return s.map((e,t)=>({heightPct:o?72:45+(e-r)/(n-r)*50,color:a[t]?"var(--eon-green-light)":"var(--eon-elec-tile)"}))}(Se(this.hass,e?.serial??null),e?.unit_rate??null),a=new Date,i=(60*a.getHours()+a.getMinutes())/1440,r=t?"Varies through the day":`Flat · ${ze(e?.unit_rate)}/kWh all day`;return I`
       <div class="card rate-strip-card">
         <div class="chart-title-row">
           <div class="chart-title">Today's electricity rate</div>
-          <div class="muted rate-headline">${n}</div>
+          <div class="muted rate-headline">${r}</div>
         </div>
         <eon-halfhour-strip
-          .bars=${a}
+          .bars=${s}
           .height=${64}
-          .nowFraction=${r}
+          .nowFraction=${i}
           .axis=${["00:00","06:00","12:00","18:00","24:00"]}
           ariaLabel="Today's electricity rate by half-hour"
         ></eon-halfhour-strip>
@@ -1381,19 +1389,19 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
     `}_renderTimeline(e,t,s){const a=this.hass?.language??"en",i=t?.serial??null,r=Ce(this.hass,i,"previous_unit_rate"),n=Ce(this.hass,i,"next_unit_rate"),o=t?.unit_rate??null;return I`
       <div class="card timeline-card">
         <div class="timeline-title">${e} rate timeline</div>
-        ${this._timelineRow("Previous",r.rate,r.validTo?`→ ${Xe(r.validTo,a)}`:"",!1,s)}
-        ${this._timelineRow("Current",o,r.validTo?`from ${Xe(r.validTo,a)}`:"",!0,s)}
-        ${this._timelineRow("Next",n.rate??o,null==n.rate?"fixed":n.validFrom?`from ${Xe(n.validFrom,a)}`:"",!1,s)}
+        ${this._timelineRow("Previous",r.rate,r.validTo?`→ ${et(r.validTo,a)}`:"",!1,s)}
+        ${this._timelineRow("Current",o,r.validTo?`from ${et(r.validTo,a)}`:"",!0,s)}
+        ${this._timelineRow("Next",n.rate??o,null==n.rate?"fixed":n.validFrom?`from ${et(n.validFrom,a)}`:"",!1,s)}
       </div>
     `}_timelineRow(e,t,s,a,i){return I`
       <div class="timeline-row ${a?"timeline-row--current":""}">
         <span class="muted">${e}</span>
         <span class="timeline-rate" style=${a?`color:${i}`:""}>
-          ${Ee(t)}
+          ${ze(t)}
           ${s?I`<span class="faint timeline-note">${s}</span>`:q}
         </span>
       </div>
-    `}}function Xe(e,t){const s=new Date(e.length<=10?`${e}T00:00:00`:e);return isNaN(s.getTime())?e:s.toLocaleDateString(t,{day:"numeric",month:"short",year:"numeric"})}Qe.styles=[Ue,Fe,Ze],e([he({attribute:!1})],Qe.prototype,"hass",void 0),e([he({attribute:!1})],Qe.prototype,"summary",void 0),customElements.get("eon-tariff-page")||customElements.define("eon-tariff-page",Qe);const et=n`.ev-banner {
+    `}}function et(e,t){const s=new Date(e.length<=10?`${e}T00:00:00`:e);return isNaN(s.getTime())?e:s.toLocaleDateString(t,{day:"numeric",month:"short",year:"numeric"})}Xe.styles=[Re,Be,Qe],e([he({attribute:!1})],Xe.prototype,"hass",void 0),e([he({attribute:!1})],Xe.prototype,"summary",void 0),customElements.get("eon-tariff-page")||customElements.define("eon-tariff-page",Xe);const tt=n`.ev-banner {
   display: flex;
   align-items: center;
   gap: 22px;
@@ -1465,7 +1473,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
 .schedule-legend {
   margin-top: 14px;
 }
-`;class tt extends oe{constructor(){super(...arguments),this.deviceId="",this.refreshToken=0,this._data=null,this._loading=!0,this._error=!1,this._fetchedDeviceId=null,this._fetchedToken=-1}updated(){this.hass&&this.deviceId&&(this.deviceId===this._fetchedDeviceId&&this.refreshToken===this._fetchedToken||this._fetch())}async _fetch(){this._fetchedDeviceId=this.deviceId,this._fetchedToken=this.refreshToken,this._loading=!0,this._error=!1;try{this._data=await async function(e,t){return e.callWS({type:"eon_next/ev_schedule",device_id:t})}(this.hass,this.deviceId)}catch{this._error=!0,this._data=null}this._loading=!1}render(){if(!this.deviceId)return I`<div class="placeholder">No EV charger available.</div>`;if(this._loading&&!this._data)return I`<div class="placeholder">Loading EV schedule…</div>`;if(this._error||!this._data)return I`<div class="placeholder">Unable to load EV schedule.</div>`;const{status:e,slots:t}=this._data,s="scheduled"===e||"active"===e;return I`
+`;class st extends oe{constructor(){super(...arguments),this.deviceId="",this.refreshToken=0,this._data=null,this._loading=!0,this._error=!1,this._fetchedDeviceId=null,this._fetchedToken=-1}updated(){this.hass&&this.deviceId&&(this.deviceId===this._fetchedDeviceId&&this.refreshToken===this._fetchedToken||this._fetch())}async _fetch(){this._fetchedDeviceId=this.deviceId,this._fetchedToken=this.refreshToken,this._loading=!0,this._error=!1;try{this._data=await async function(e,t){return e.callWS({type:"eon_next/ev_schedule",device_id:t})}(this.hass,this.deviceId)}catch{this._error=!0,this._data=null}this._loading=!1}render(){if(!this.deviceId)return I`<div class="placeholder">No EV charger available.</div>`;if(this._loading&&!this._data)return I`<div class="placeholder">Loading EV schedule…</div>`;if(this._error||!this._data)return I`<div class="placeholder">Unable to load EV schedule.</div>`;const{status:e,slots:t}=this._data,s="scheduled"===e||"active"===e;return I`
       <div class="page">
         ${this._renderBanner(s)} ${this._renderChargeCards(t)}
         ${this._renderSchedule(t)}
@@ -1495,7 +1503,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
     `}_chargeCard(e,t,s){if(!t)return I`<div class="card card--stat charge-card">
         <div class="muted charge-label">${e}</div>
         <div class="serif charge-value charge-value--empty">Not scheduled</div>
-      </div>`;const a=new Date(t.start),i=new Date(t.end),r=`${st(a)} → ${st(i)}`,n=function(e,t){const s=Math.round((t.getTime()-e.getTime())/6e4);if(!Number.isFinite(s)||s<=0)return"scheduled";const a=Math.floor(s/60),i=s%60,r=0===i?`${a} hr`:`${(s/60).toFixed(1)} hr`;return`${r} window`}(a,i),o=`${function(e,t){if(isNaN(e.getTime()))return"";const s=new Date,a=new Date(s.getFullYear(),s.getMonth(),s.getDate()),i=new Date(e.getFullYear(),e.getMonth(),e.getDate()),r=Math.round((i.getTime()-a.getTime())/864e5);return r<=0?e.getHours()>=18||e.getHours()<6?"Tonight":"Today":1===r?"Tomorrow":e.toLocaleDateString(t,{weekday:"short"})}(a,s)} · ${n}`;return I`
+      </div>`;const a=new Date(t.start),i=new Date(t.end),r=`${at(a)} → ${at(i)}`,n=function(e,t){const s=Math.round((t.getTime()-e.getTime())/6e4);if(!Number.isFinite(s)||s<=0)return"scheduled";const a=Math.floor(s/60),i=s%60,r=0===i?`${a} hr`:`${(s/60).toFixed(1)} hr`;return`${r} window`}(a,i),o=`${function(e,t){if(isNaN(e.getTime()))return"";const s=new Date,a=new Date(s.getFullYear(),s.getMonth(),s.getDate()),i=new Date(e.getFullYear(),e.getMonth(),e.getDate()),r=Math.round((i.getTime()-a.getTime())/864e5);return r<=0?e.getHours()>=18||e.getHours()<6?"Tonight":"Today":1===r?"Tomorrow":e.toLocaleDateString(t,{weekday:"short"})}(a,s)} · ${n}`;return I`
       <div class="card card--stat charge-card">
         <div class="muted charge-label">${e}</div>
         <div class="serif charge-value">${r}</div>
@@ -1520,7 +1528,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           </span>
         </div>
       </div>
-    `}}function st(e){return isNaN(e.getTime())?"-":`${String(e.getHours()).padStart(2,"0")}:${String(e.getMinutes()).padStart(2,"0")}`}tt.styles=[Ue,Fe,et],e([he({attribute:!1})],tt.prototype,"hass",void 0),e([he()],tt.prototype,"deviceId",void 0),e([he({type:Number})],tt.prototype,"refreshToken",void 0),e([pe()],tt.prototype,"_data",void 0),e([pe()],tt.prototype,"_loading",void 0),e([pe()],tt.prototype,"_error",void 0),customElements.get("eon-ev-page")||customElements.define("eon-ev-page",tt);const at=n`/* Shared styles using HA CSS custom properties for automatic theme support. */
+    `}}function at(e){return isNaN(e.getTime())?"-":`${String(e.getHours()).padStart(2,"0")}:${String(e.getMinutes()).padStart(2,"0")}`}st.styles=[Re,Be,tt],e([he({attribute:!1})],st.prototype,"hass",void 0),e([he()],st.prototype,"deviceId",void 0),e([he({type:Number})],st.prototype,"refreshToken",void 0),e([pe()],st.prototype,"_data",void 0),e([pe()],st.prototype,"_loading",void 0),e([pe()],st.prototype,"_error",void 0),customElements.get("eon-ev-page")||customElements.define("eon-ev-page",st);const it=n`/* Shared styles using HA CSS custom properties for automatic theme support. */
 
 :host {
   --eon-primary: var(--primary-color, #03a9f4);
@@ -1557,7 +1565,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   color: var(--eon-text-secondary);
   margin-left: 2px;
 }
-`,it=n`.backfill-header {
+`,rt=n`.backfill-header {
   display: flex;
   align-items: center;
   gap: 6px;
@@ -1661,7 +1669,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   font-style: italic;
   padding: 4px 0;
 }
-`;class rt extends oe{constructor(){super(...arguments),this._data=new fe(this,e=>ue(e))}render(){if(this._data.loading)return I`
+`;class nt extends oe{constructor(){super(...arguments),this._data=new ge(this,e=>ue(e))}render(){if(this._data.loading)return I`
         <div class="backfill-header">
           <ha-icon icon="mdi:database-clock" style="--mdc-icon-size: 18px;"></ha-icon>
           Historical Backfill
@@ -1724,7 +1732,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
                   </div>
                 `)}
             </div>`:q}
-    `}}rt.styles=[at,it],e([he({attribute:!1})],rt.prototype,"hass",void 0),customElements.get("eon-backfill-status")||customElements.define("eon-backfill-status",rt);const nt=n`.intro {
+    `}}nt.styles=[it,rt],e([he({attribute:!1})],nt.prototype,"hass",void 0),customElements.get("eon-backfill-status")||customElements.define("eon-backfill-status",nt);const ot=n`.intro {
   padding: 28px 30px;
 }
 
@@ -1745,7 +1753,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
   margin-top: 14px;
   font-family: var(--eon-font-mono);
 }
-`;class ot extends oe{constructor(){super(...arguments),this.version=null}render(){return I`
+`;class lt extends oe{constructor(){super(...arguments),this.version=null}render(){return I`
       <div class="page">
         <div class="card intro">
           <div class="serif intro-title">Settings</div>
@@ -1760,7 +1768,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
           <eon-backfill-status .hass=${this.hass}></eon-backfill-status>
         </div>
       </div>
-    `}}ot.styles=[Ue,Fe,nt],e([he({attribute:!1})],ot.prototype,"hass",void 0),e([he()],ot.prototype,"version",void 0),customElements.get("eon-settings-page")||customElements.define("eon-settings-page",ot);const lt=n`:host {
+    `}}lt.styles=[Re,Be,ot],e([he({attribute:!1})],lt.prototype,"hass",void 0),e([he()],lt.prototype,"version",void 0),customElements.get("eon-settings-page")||customElements.define("eon-settings-page",lt);const dt=n`:host {
   display: block;
   font-family: var(--eon-font-ui);
   color: var(--eon-text);
@@ -2097,7 +2105,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
     display: none;
   }
 }
-`;class dt extends oe{constructor(){super(...arguments),this.narrow=!1,this._page="overview",this._lastUpdated=null,this._refreshToken=0,this._version=new fe(this,e=>async function(e){return e.callWS({type:"eon_next/version"})}(e)),this._summary=new fe(this,e=>async function(e){return e.callWS({type:"eon_next/dashboard_summary"})}(e)),this._hadData=!1,this._navigate=e=>{this._page=e},this._toggleSidebar=()=>{this.dispatchEvent(new CustomEvent("hass-toggle-menu",{bubbles:!0,composed:!0}))},this._onNavigateEvent=e=>{this._navigate(e.detail.page)},this._refresh=()=>{this._refreshToken++,this._lastUpdated=new Date,this._summary.refresh(),this._version.refresh()}}connectedCallback(){super.connectedCallback(),this._ensureFonts()}updated(){!this._summary.data||this._summary.loading||this._summary.refreshing||this._hadData||(this._hadData=!0,this._lastUpdated=new Date)}_ensureFonts(){const e=this.ownerDocument;if(!e||e.getElementById("eon-next-fonts"))return;const t=e.createElement("link");t.id="eon-next-fonts",t.rel="stylesheet",t.href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Space+Mono&display=swap",e.head.appendChild(t)}render(){return I`
+`;class ct extends oe{constructor(){super(...arguments),this.narrow=!1,this._page="overview",this._lastUpdated=null,this._refreshToken=0,this._version=new ge(this,e=>async function(e){return e.callWS({type:"eon_next/version"})}(e)),this._summary=new ge(this,e=>async function(e){return e.callWS({type:"eon_next/dashboard_summary"})}(e)),this._hadData=!1,this._navigate=e=>{this._page=e},this._toggleSidebar=()=>{this.dispatchEvent(new CustomEvent("hass-toggle-menu",{bubbles:!0,composed:!0}))},this._onNavigateEvent=e=>{this._navigate(e.detail.page)},this._refresh=()=>{this._refreshToken++,this._lastUpdated=new Date,this._summary.refresh(),this._version.refresh()}}connectedCallback(){super.connectedCallback(),this._ensureFonts()}updated(){!this._summary.data||this._summary.loading||this._summary.refreshing||this._hadData||(this._hadData=!0,this._lastUpdated=new Date)}_ensureFonts(){const e=this.ownerDocument;if(!e||e.getElementById("eon-next-fonts"))return;const t=e.createElement("link");t.id="eon-next-fonts",t.rel="stylesheet",t.href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&family=Newsreader:opsz,wght@6..72,400;6..72,500;6..72,600&family=Space+Mono&display=swap",e.head.appendChild(t)}render(){return I`
       <div class="shell" @navigate=${this._onNavigateEvent}>
         ${this._renderRail()}
         <main class="main">
@@ -2131,7 +2139,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         </div>
 
         <div class="nav-items">
-          ${Oe.map(e=>this._renderNavButton(e.page,e.label,e.icon))}
+          ${je.map(e=>this._renderNavButton(e.page,e.label,e.icon))}
         </div>
 
         <div class="rail-bottom">
@@ -2140,7 +2148,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
                   <div
                     class="serif balance-value ${e>=0?"balance--credit":"balance--debit"}"
                   >
-                    ${Te(Math.abs(e))}
+                    ${Ee(Math.abs(e))}
                   </div>
                   <div class="balance-sub">${e>=0?"in credit":"owed"}</div>
                 </div>`:q}
@@ -2159,7 +2167,7 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
     `}_renderTopBar(){const e=this._summary.refreshing?"Updating…":`Updated ${function(e){if(!e)return"-";const t=Math.max(0,Math.round((Date.now()-e.getTime())/1e3));if(t<45)return"just now";const s=Math.round(t/60);if(s<60)return`${s} min${1===s?"":"s"} ago`;const a=Math.round(s/60);if(a<24)return`${a} hr${1===a?"":"s"} ago`;const i=Math.round(a/24);return`${i} day${1===i?"":"s"} ago`}(this._lastUpdated)}`;return I`
       <header class="topbar">
         <div class="topbar-left">
-          <h1 class="serif topbar-title">${je[this._page]}</h1>
+          <h1 class="serif topbar-title">${Ue[this._page]}</h1>
         </div>
         <div class="topbar-right">
           <span class="freshness"> <span class="dot"></span>${e} </span>
@@ -2210,4 +2218,4 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         ></eon-ev-page>`;case"settings":return I`<eon-settings-page
           .hass=${this.hass}
           .version=${this._version.data?.version??null}
-        ></eon-settings-page>`}}}dt.styles=[Ue,lt],e([he({attribute:!1})],dt.prototype,"hass",void 0),e([he({type:Boolean})],dt.prototype,"narrow",void 0),e([he({attribute:!1})],dt.prototype,"route",void 0),e([he({attribute:!1})],dt.prototype,"panel",void 0),e([pe()],dt.prototype,"_page",void 0),e([pe()],dt.prototype,"_lastUpdated",void 0),e([pe()],dt.prototype,"_refreshToken",void 0),customElements.define("eon-next-panel",dt);
+        ></eon-settings-page>`}}}ct.styles=[Re,dt],e([he({attribute:!1})],ct.prototype,"hass",void 0),e([he({type:Boolean})],ct.prototype,"narrow",void 0),e([he({attribute:!1})],ct.prototype,"route",void 0),e([he({attribute:!1})],ct.prototype,"panel",void 0),e([pe()],ct.prototype,"_page",void 0),e([pe()],ct.prototype,"_lastUpdated",void 0),e([pe()],ct.prototype,"_refreshToken",void 0),customElements.define("eon-next-panel",ct);
