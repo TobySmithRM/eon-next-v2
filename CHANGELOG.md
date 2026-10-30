@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.3.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.2.1...v2.3.0) (2026-10-30)
+
+
+### Features
+
+* **dashboard:** show peak and off-peak unit rates on the tariff hero ([a2fc11b](https://github.com/TobySmithRM/eon-next-v2/commit/a2fc11b0e2b76fa5a1bb1d32e2b6764dcc0101e1))
+
+
+### Bug Fixes
+
+* **dashboard:** count a finished meter as 100% backfill progress ([9ca6528](https://github.com/TobySmithRM/eon-next-v2/commit/9ca65283cd1cab343df1780c9f91dfe3d88d9733))
+
 ## [2.2.1](https://github.com/TobySmithRM/eon-next-v2/compare/v2.2.0...v2.2.1) (2026-10-29)
 
 
