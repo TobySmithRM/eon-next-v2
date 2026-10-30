@@ -29,6 +29,11 @@ export interface BackfillProgress {
  * across every meter, so two meters at 12/40 and 10/40 days read as 22/80 = 28%
  * rather than "0 of 2 meters complete". Falls back to the meter-count ratio, then
  * null, when per-meter day counts are unavailable.
+ *
+ * A finished meter counts as fully done even though `days_completed` stops a day
+ * or two short of the lookback: the backfill never fetches today (the live path
+ * owns it), and some meters have less history than the lookback, so those days
+ * are not a gap. Without this a completed backfill would read e.g. 78/80.
  */
 export function backfillProgress(
   status: BackfillStatusResponse | null | undefined
@@ -36,8 +41,9 @@ export function backfillProgress(
   let doneDays = 0
   let totalDays = 0
   for (const m of status?.meters ?? []) {
-    doneDays += Math.max(0, m.days_completed ?? 0)
-    totalDays += Math.max(0, (m.days_completed ?? 0) + (m.days_remaining ?? 0))
+    const meterTotal = Math.max(0, (m.days_completed ?? 0) + (m.days_remaining ?? 0))
+    doneDays += m.done ? meterTotal : Math.max(0, m.days_completed ?? 0)
+    totalDays += meterTotal
   }
   let pct: number | null = null
   if (totalDays > 0) {
