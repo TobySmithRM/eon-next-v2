@@ -313,7 +313,17 @@ class EonNext:
         async with self._auth_lock:
             if not self.__auth_token_is_valid():
                 if self.__refresh_token_is_valid():
-                    await self.__login_with_refresh_token()
+                    # A refresh token can look valid locally yet be rejected by
+                    # E.ON. On rejection fall back to the stored API key instead
+                    # of escalating to a manual re-auth prompt. (Transient API
+                    # errors raise rather than return False, so they propagate
+                    # and are retried later.)
+                    if not await self.__login_with_refresh_token():
+                        _LOGGER.warning(
+                            "Stored E.ON refresh token was rejected; "
+                            "falling back to the stored API key"
+                        )
+                        await self.__login_with_stored_credentials()
                 else:
                     await self.__login_with_stored_credentials()
 
@@ -323,20 +333,27 @@ class EonNext:
             return self.auth["token"]["token"]
 
     async def _force_token_refresh(self) -> bool:
-        """Force a new access token after a server 401, ignoring the cache.
+        """Force a new access token after a server 401/403, ignoring the cache.
 
         The cached access token can look valid locally yet be rejected by the
         server (mild clock skew, or expiry between issue and arrival).  This
         invalidates it and refreshes once under the auth lock so a single 401
         is retried transparently rather than escalating to a re-auth prompt.
-        Returns ``True`` if a valid token was obtained.
+        If the stored refresh token is itself rejected, fall back to the stored
+        API key before giving up.  Returns ``True`` if a valid token was
+        obtained.
         """
         async with self._auth_lock:
             # Drop the cached access token so the refresh cannot short-circuit.
             self.auth["token"]["token"] = None
             self.auth["token"]["expires"] = None
             if self.__refresh_token_is_valid():
-                await self.__login_with_refresh_token()
+                if not await self.__login_with_refresh_token():
+                    _LOGGER.warning(
+                        "E.ON refresh token was rejected after a 401/403; "
+                        "falling back to the stored API key"
+                    )
+                    await self.__login_with_stored_credentials()
             else:
                 await self.__login_with_stored_credentials()
             return self.__auth_token_is_valid()

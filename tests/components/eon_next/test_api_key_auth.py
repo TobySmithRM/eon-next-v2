@@ -130,6 +130,81 @@ async def test_force_token_refresh_uses_api_key_when_refresh_token_gone() -> Non
     assert api._graphql_post.await_args.args[0] == "apiKeyAuthentication"
 
 
+def _valid_refresh_but_expired_access(api: EonNext) -> None:
+    """A refresh token that looks valid locally, with an expired access token."""
+    api.auth = {
+        "issued": 1000000000,
+        "token": {"token": None, "expires": None},
+        "refresh": {"token": "saved-refresh", "expires": 9999999999},
+    }
+
+
+async def _reject_refresh_then_api_key(
+    calls: list[str],
+) -> Any:
+    """Return a _graphql_post fake: refresh is rejected, API key succeeds."""
+
+    async def _fake_post(operation: str, _query: str, variables: Any, *_a: Any) -> dict:
+        calls.append(operation)
+        if operation == "refreshToken":
+            return {"errors": [{"message": "refresh token rejected"}]}
+        return _token_response("fresh-jwt")
+
+    return _fake_post
+
+
+@pytest.mark.asyncio
+async def test_rejected_refresh_token_falls_back_to_api_key() -> None:
+    """A locally-valid refresh token rejected by E.ON re-logs in with the key."""
+    api = EonNext()
+    api.api_key = "sk_live_abc"
+    _valid_refresh_but_expired_access(api)
+    calls: list[str] = []
+    api._graphql_post = AsyncMock(  # type: ignore[method-assign]
+        side_effect=await _reject_refresh_then_api_key(calls)
+    )
+
+    token = await api._EonNext__auth_token()  # type: ignore[attr-defined]
+
+    assert token == "fresh-jwt"
+    assert calls == ["refreshToken", "apiKeyAuthentication"]
+
+
+@pytest.mark.asyncio
+async def test_force_refresh_falls_back_to_api_key_on_rejected_refresh() -> None:
+    api = EonNext()
+    api.api_key = "sk_live_abc"
+    _valid_refresh_but_expired_access(api)
+    calls: list[str] = []
+    api._graphql_post = AsyncMock(  # type: ignore[method-assign]
+        side_effect=await _reject_refresh_then_api_key(calls)
+    )
+
+    assert await api._force_token_refresh() is True
+    assert calls == ["refreshToken", "apiKeyAuthentication"]
+
+
+@pytest.mark.asyncio
+async def test_transient_refresh_error_does_not_fall_back() -> None:
+    """A transient API error during refresh propagates; it must not re-login."""
+    api = EonNext()
+    api.api_key = "sk_live_abc"
+    _valid_refresh_but_expired_access(api)
+    calls: list[str] = []
+
+    async def _fake_post(operation: str, _query: str, variables: Any, *_a: Any) -> dict:
+        calls.append(operation)
+        raise EonNextApiError("server unavailable")
+
+    api._graphql_post = AsyncMock(side_effect=_fake_post)  # type: ignore[method-assign]
+
+    with pytest.raises(EonNextApiError, match="server unavailable"):
+        await api._EonNext__auth_token()  # type: ignore[attr-defined]
+
+    # Only the refresh was attempted; no API-key fallback on a transient error.
+    assert calls == ["refreshToken"]
+
+
 @pytest.mark.asyncio
 async def test_no_api_key_does_not_attempt_any_login(
     caplog: pytest.LogCaptureFixture,

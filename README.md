@@ -107,6 +107,7 @@ When SmartFlex devices are available: smart‑charging schedule status, next cha
 ### Reliability
 
 - Home Assistant re‑auth support when sign‑in fails or the API key is rotated or revoked.
+- A refresh token rejected by E.ON falls back automatically to the stored API key, so a routine token expiry no longer triggers a manual re‑auth prompt.
 - Transient connectivity failures during login defer setup instead of invalidating stored credentials.
 - Auth/login GraphQL requests retry once over IPv4 after connector‑level network‑unreachable failures.
 
