@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.3.1](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.0...v2.3.1) (2026-11-01)
+
+
+### Bug Fixes
+
+* **auth:** fall back to the API key when the refresh token is rejected ([946452a](https://github.com/TobySmithRM/eon-next-v2/commit/946452aa3e0c922c66cb2e8ecbd577b7274dacfb))
+* **auth:** note the existing API key can be reused on re-auth ([e585f2c](https://github.com/TobySmithRM/eon-next-v2/commit/e585f2c09882c54a0bdfbff9ae8e3066e056b983))
+* **dashboard:** keep off-peak hero rate text white, colour only the border ([c9c1804](https://github.com/TobySmithRM/eon-next-v2/commit/c9c1804e77e71699cbac84a545747198b5c951ff))
+
 ## [2.3.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.2.1...v2.3.0) (2026-10-30)
 
 
