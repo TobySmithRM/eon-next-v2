@@ -1344,22 +1344,17 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
         <div class="tariff-hero-stats">
           ${p?I`
                   ${this._heroStat("Elec peak",Me(c),"per kWh","var(--eon-elec)")}
-                  ${this._heroStat("Elec off-peak",Me(h),"per kWh","var(--eon-green-light)","var(--eon-green-light)")}
+                  ${this._heroStat("Elec off-peak",Me(h),"per kWh","var(--eon-green-light)")}
                 `:this._heroStat("Electricity unit",Me(e?.unit_rate),"per kWh","var(--eon-elec)")}
           ${this._heroStat("Elec standing",Me(e?.standing_charge),"per day","var(--eon-elec-standing)")}
           ${this._heroStat("Gas unit",Me(t?.unit_rate),"per kWh","var(--eon-gas)")}
           ${this._heroStat("Gas standing",Me(t?.standing_charge),"per day","var(--eon-gas-standing)")}
         </div>
       </div>
-    `}_heroStat(e,t,s,a,i){return I`
+    `}_heroStat(e,t,s,a){return I`
       <div class="hero-stat" style="border-left-color:${a}">
         <div class="tariff-stat-label">${e}</div>
-        <div
-          class="serif hero-stat-value"
-          style=${i?`color:${i}`:""}
-        >
-          ${t}
-        </div>
+        <div class="serif hero-stat-value">${t}</div>
         <div class="hero-stat-sub">${s}</div>
       </div>
     `}_renderRateStrip(e,t){const s=function(e,t){const s=[],a=[],i=new Date;i.setHours(0,0,0,0);for(let r=0;r<48;r++){const n=new Date(i.getTime()+30*r*6e4),o=new Date(n.getTime()+9e5);let l=t??0,d=!1;for(const t of e){const e=new Date(t.start),s=new Date(t.end);if(!isNaN(e.getTime())&&!isNaN(s.getTime())&&(o>=e&&o<s)){l=t.rate,d=t.isOffPeak;break}}s.push(l),a.push(d)}const r=Math.min(...s),n=Math.max(...s),o=n-r<1e-6;return s.map((e,t)=>({heightPct:o?72:45+(e-r)/(n-r)*50,color:a[t]?"var(--eon-green-light)":"var(--eon-elec-tile)"}))}(Se(this.hass,e?.serial??null),e?.unit_rate??null),a=new Date,i=(60*a.getHours()+a.getMinutes())/1440,r=t?"Varies through the day":`Flat · ${ze(e?.unit_rate)}/kWh all day`;return I`

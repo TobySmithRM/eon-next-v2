@@ -90,7 +90,7 @@ class EonTariffPage extends LitElement {
             showSplit
               ? html`
                   ${this._heroStat('Elec peak', formatRatePounds(peak), 'per kWh', 'var(--eon-elec)')}
-                  ${this._heroStat('Elec off-peak', formatRatePounds(offPeak), 'per kWh', 'var(--eon-green-light)', 'var(--eon-green-light)')}
+                  ${this._heroStat('Elec off-peak', formatRatePounds(offPeak), 'per kWh', 'var(--eon-green-light)')}
                 `
               : this._heroStat(
                   'Electricity unit',
@@ -107,22 +107,11 @@ class EonTariffPage extends LitElement {
     `
   }
 
-  private _heroStat(
-    label: string,
-    value: string,
-    sub: string,
-    color: string,
-    valueColor?: string
-  ) {
+  private _heroStat(label: string, value: string, sub: string, color: string) {
     return html`
       <div class="hero-stat" style="border-left-color:${color}">
         <div class="tariff-stat-label">${label}</div>
-        <div
-          class="serif hero-stat-value"
-          style=${valueColor ? `color:${valueColor}` : ''}
-        >
-          ${value}
-        </div>
+        <div class="serif hero-stat-value">${value}</div>
         <div class="hero-stat-sub">${sub}</div>
       </div>
     `
