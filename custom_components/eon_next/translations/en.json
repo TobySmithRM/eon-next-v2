@@ -16,7 +16,7 @@
                     "email": "Email address",
                     "api_key": "API key"
                 },
-                "description": "Your login is no longer valid. Enter your E.ON API key to reconnect (see the README for how to create one).",
+                "description": "Your login is no longer valid. Enter your E.ON API key to reconnect. You can usually reuse the same API key you saved when first setting up - you only need to generate a new one from the E.ON website if the key has been rotated or revoked (see the README).",
                 "title": "Reauthenticate Eon Next"
             },
             "user": {

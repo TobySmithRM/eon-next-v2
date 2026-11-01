@@ -167,7 +167,7 @@ Or add it manually:
 
 ## Reauthentication
 
-If your login expires or your API key changes, Home Assistant prompts for re‑authentication. Open the integration card and complete the re‑auth flow to restore updates.
+If your login expires or your API key changes, Home Assistant prompts for re‑authentication. Open the integration card and complete the re‑auth flow to restore updates. In most cases you can **reuse the same API key** you saved when first setting up — the key is long‑lived, so you only need to generate a new one from the E.ON website if it has been rotated or revoked.
 
 ### Signing in with an API key
 
