@@ -142,7 +142,7 @@ resources:
 
 The quickest way - click to open this repository directly in your Home Assistant's HACS:
 
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=monsagri&repository=eon-next-v2&category=integration)
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=TobySmithRM&repository=eon-next-v2&category=integration)
 
 Then click **Download**, restart Home Assistant, and add the integration:
 
@@ -153,7 +153,7 @@ Or add it manually:
 1. Open HACS in Home Assistant.
 2. Go to **Integrations**.
 3. If this repository is not already listed, add it as a custom repository:
-   - URL: `https://github.com/monsagri/eon-next-v2`
+   - URL: `https://github.com/TobySmithRM/eon-next-v2`
    - Category: **Integration**
 4. Find **Eon Next Integration** in HACS and install it.
 5. Restart Home Assistant.

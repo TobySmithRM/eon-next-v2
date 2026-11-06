@@ -7,17 +7,17 @@
         "panel_custom"
     ],
     "codeowners": [
-        "@monsagri"
+        "@TobySmithRM"
     ],
     "config_flow": true,
     "dependencies": [
         "http",
         "recorder"
     ],
-    "documentation": "https://github.com/monsagri/eon-next-v2",
+    "documentation": "https://github.com/TobySmithRM/eon-next-v2",
     "integration_type": "hub",
     "iot_class": "cloud_polling",
-    "issue_tracker": "https://github.com/monsagri/eon-next-v2/issues",
+    "issue_tracker": "https://github.com/TobySmithRM/eon-next-v2/issues",
     "requirements": [],
     "version": "2.3.1"
 }
