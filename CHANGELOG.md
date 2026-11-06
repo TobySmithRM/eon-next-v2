@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.3.2](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.1...v2.3.2) (2026-11-06)
+
+
+### Bug Fixes
+
+* **manifest:** attribute the integration to the fork owner ([0cada5f](https://github.com/TobySmithRM/eon-next-v2/commit/0cada5f66863d83d2e3b4d0cb12cfba4f61d4085))
+
 ## [2.3.1](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.0...v2.3.1) (2026-11-01)
 
 
