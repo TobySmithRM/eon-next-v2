@@ -1,0 +1,70 @@
+name: Node version check
+
+# Dependabot tracks package dependencies and action versions, but not the
+# Node.js runtime pinned in .nvmrc. This weekly job checks that pin against the
+# latest patch of its current major line (e.g. 24.x) and opens a PR when a newer
+# one is available - picking up Node security releases without a manual chore.
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Mondays 06:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  check-node:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Compare .nvmrc against the latest Node patch
+        id: check
+        run: |
+          current="$(tr -d '[:space:]' < .nvmrc)"
+          major="${current%%.*}"
+          echo "Current .nvmrc pin: $current (line ${major}.x)"
+          # index.json is newest-first, so the first match on this major line is
+          # the latest patch. Fall back to [] so a network blip can't abort.
+          latest="$(
+            { curl -fsSL https://nodejs.org/dist/index.json || echo '[]'; } \
+              | jq -r --arg m "v${major}." \
+                '[.[] | select(.version | startswith($m)) | .version] | first // empty' \
+              | sed 's/^v//'
+          )"
+          echo "Latest ${major}.x: ${latest:-unknown}"
+          if [ -z "$latest" ]; then
+            echo "Could not determine the latest Node ${major}.x; skipping."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "$current" = "$latest" ]; then
+            echo "Already on the latest ${major}.x."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          printf '%s\n' "$latest" > .nvmrc
+          {
+            echo "changed=true"
+            echo "current=$current"
+            echo "latest=$latest"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Open a bump PR
+        if: steps.check.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          branch: ci/node-version-bump
+          base: main
+          delete-branch: true
+          commit-message: "ci(frontend): bump Node to ${{ steps.check.outputs.latest }}"
+          title: "ci(frontend): bump Node to ${{ steps.check.outputs.latest }}"
+          body: |
+            The latest Node patch on the pinned line is `${{ steps.check.outputs.latest }}`; `.nvmrc` currently pins `${{ steps.check.outputs.current }}`.
+
+            The frontend CI workflow reads the version from `.nvmrc`, so this one change moves CI (and local `nvm` users) to the patched runtime. The committed frontend bundles are unaffected, so no integration release is required for this on its own.
+
+            Opened automatically by the **Node version check** workflow.
+          labels: dependencies
