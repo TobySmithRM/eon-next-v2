@@ -20,6 +20,9 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    # Conventional-Commit PR titles so the commit-conventions check passes.
+    commit-message:
+      prefix: "ci"
     groups:
       github-actions-non-major:
         update-types:
@@ -34,6 +37,9 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
     groups:
       root-npm-non-major:
         update-types:
@@ -48,6 +54,9 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
+      prefix-development: "chore"
     groups:
       frontend-npm-non-major:
         update-types:
@@ -62,6 +71,8 @@ updates:
     cooldown:
       default-days: 7
     open-pull-requests-limit: 10
+    commit-message:
+      prefix: "chore"
     groups:
       pip-non-major:
         update-types:
