@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
 
+## [2.3.3](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.2...v2.3.3) (2026-11-13)
+
+
+### Bug Fixes
+
+* **frontend:** bump pinned Node.js to 24.22.3 for security fixes ([19d4dd2](https://github.com/TobySmithRM/eon-next-v2/commit/19d4dd2bbc9286b52da3051f1ccc58d778c6b78a))
+
 ## [2.3.2](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.1...v2.3.2) (2026-11-06)
 
 
