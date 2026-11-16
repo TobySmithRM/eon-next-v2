@@ -12,7 +12,7 @@ from typing import Any
 
 import aiohttp
 
-from .const import API_BASE_URL
+from .const import API_BASE_URL, GAS_CALORIC_VALUE, GAS_VOLUME_CORRECTION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -58,6 +58,11 @@ def _redacted_error_messages(errors: Any) -> Any:
 METER_TYPE_GAS = "gas"
 METER_TYPE_ELECTRIC = "electricity"
 METER_TYPE_UNKNOWN = "unknown"
+
+
+def gas_m3_to_kwh(m3_value: float) -> float:
+    """Convert a gas volume in m³ to kWh."""
+    return round(m3_value * GAS_VOLUME_CORRECTION * GAS_CALORIC_VALUE / 3.6, 3)
 
 
 GET_ACCOUNT_DEVICES_QUERY = """
@@ -623,6 +628,27 @@ class EonNext:
 
         return balances
 
+    def _convert_gas_consumption(
+        self, serial: str, results: list[dict[str, Any]]
+    ) -> None:
+        """Convert gas consumption to kWh in place when the meter reports m³."""
+        meter = next(
+            (
+                meter
+                for account in self.accounts
+                for meter in account.meters
+                if isinstance(meter, GasMeter) and meter.serial == serial
+            ),
+            None,
+        )
+        if meter is None or not meter.reports_cubic_metres():
+            return
+        for row in results:
+            try:
+                row["consumption"] = gas_m3_to_kwh(float(row["consumption"]))
+            except (KeyError, TypeError, ValueError):
+                continue
+
     async def async_get_consumption(
         self,
         meter_type: str,
@@ -671,6 +697,8 @@ class EonNext:
                     if response.status == 200:
                         data = await response.json()
                         if "results" in data:
+                            if meter_type == METER_TYPE_GAS:
+                                self._convert_gas_consumption(serial, data["results"])
                             return data
                         # 200 with no results key: genuine "no data for this
                         # period" - distinct from a transport error below.
@@ -882,7 +910,7 @@ class EnergyAccount:
     async def _load_meters(self):
         result = await self.api._graphql_post(
             "getAccountMeterSelector",
-            "query getAccountMeterSelector($accountNumber: String!, $showInactive: Boolean!) {\n  properties(accountNumber: $accountNumber) {\n    ...MeterSelectorPropertyFields\n    __typename\n  }\n}\n\nfragment MeterSelectorPropertyFields on PropertyType {\n  __typename\n  electricityMeterPoints {\n    ...MeterSelectorElectricityMeterPointFields\n    __typename\n  }\n  gasMeterPoints {\n    ...MeterSelectorGasMeterPointFields\n    __typename\n  }\n  id\n  postcode\n}\n\nfragment MeterSelectorElectricityMeterPointFields on ElectricityMeterPointType {\n  __typename\n  id\n  mpan\n  meters(includeInactive: $showInactive) {\n    ...MeterSelectorElectricityMeterFields\n    __typename\n  }\n}\n\nfragment MeterSelectorElectricityMeterFields on ElectricityMeterType {\n  __typename\n  activeTo\n  id\n  registers {\n    id\n    name\n    __typename\n  }\n  serialNumber\n}\n\nfragment MeterSelectorGasMeterPointFields on GasMeterPointType {\n  __typename\n  id\n  mprn\n  meters(includeInactive: $showInactive) {\n    ...MeterSelectorGasMeterFields\n    __typename\n  }\n}\n\nfragment MeterSelectorGasMeterFields on GasMeterType {\n  __typename\n  activeTo\n  id\n  registers {\n    id\n    name\n    __typename\n  }\n  serialNumber\n}\n",
+            "query getAccountMeterSelector($accountNumber: String!, $showInactive: Boolean!) {\n  properties(accountNumber: $accountNumber) {\n    ...MeterSelectorPropertyFields\n    __typename\n  }\n}\n\nfragment MeterSelectorPropertyFields on PropertyType {\n  __typename\n  electricityMeterPoints {\n    ...MeterSelectorElectricityMeterPointFields\n    __typename\n  }\n  gasMeterPoints {\n    ...MeterSelectorGasMeterPointFields\n    __typename\n  }\n  id\n  postcode\n}\n\nfragment MeterSelectorElectricityMeterPointFields on ElectricityMeterPointType {\n  __typename\n  id\n  mpan\n  meters(includeInactive: $showInactive) {\n    ...MeterSelectorElectricityMeterFields\n    __typename\n  }\n}\n\nfragment MeterSelectorElectricityMeterFields on ElectricityMeterType {\n  __typename\n  activeTo\n  id\n  registers {\n    id\n    name\n    __typename\n  }\n  serialNumber\n}\n\nfragment MeterSelectorGasMeterPointFields on GasMeterPointType {\n  __typename\n  id\n  mprn\n  meters(includeInactive: $showInactive) {\n    ...MeterSelectorGasMeterFields\n    __typename\n  }\n}\n\nfragment MeterSelectorGasMeterFields on GasMeterType {\n  __typename\n  activeTo\n  consumptionUnits\n  id\n  registers {\n    id\n    name\n    __typename\n  }\n  serialNumber\n}\n",
             {
                 "accountNumber": self.account_number,
                 "showInactive": False,
@@ -926,6 +954,7 @@ class EnergyAccount:
                         meter_config["id"],
                         meter_config["serialNumber"],
                         supply_point_id,
+                        meter_config.get("consumptionUnits"),
                     )
                     self.meters.append(meter)
 
@@ -1152,9 +1181,16 @@ class GasMeter(EnergyMeter):
         meter_id: str,
         serial: str,
         supply_point_id: str = "",
+        consumption_units: str | None = None,
     ):
         super().__init__(account, meter_id, serial, supply_point_id)
         self.type = METER_TYPE_GAS
+        self.consumption_units = consumption_units
+
+    def reports_cubic_metres(self) -> bool:
+        """Return True when the meter reports consumption in m³."""
+        units = (self.consumption_units or "").lower().replace("³", "3")
+        return units == "m3"
 
     async def _update(self):
         result = await self.api._graphql_post(
@@ -1175,12 +1211,6 @@ class GasMeter(EnergyMeter):
 
     def get_latest_reading_kwh(self, m3_value: float) -> float:
         """Convert gas m3 reading to kWh."""
-        from .const import GAS_CALORIC_VALUE, GAS_VOLUME_CORRECTION
-
-        kwh = m3_value * GAS_VOLUME_CORRECTION
-        kwh = kwh * GAS_CALORIC_VALUE
-        kwh = kwh / 3.6
-        # Keep sub-kWh precision (whole-kWh rounding loses real consumption on
-        # small deltas).  Calorific value is a fixed approximation (38) - real
-        # per-period values vary and would need a dedicated API source.
-        return round(kwh, 3)
+        # Calorific value is a fixed approximation (38) - real per-period
+        # values vary and would need a dedicated API source.
+        return gas_m3_to_kwh(m3_value)
