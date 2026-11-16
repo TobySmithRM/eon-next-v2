@@ -18,6 +18,9 @@ from custom_components.eon_next.eonnext import (
     METER_TYPE_ELECTRIC,
     METER_TYPE_GAS,
     gas_m3_to_kwh,
+    STANDING_CHARGES,
+    UNIT_RATES,
+    EonNextNotFoundError,
 )
 
 _PAST_ISO = (datetime.now(tz=timezone.utc) - timedelta(days=1)).isoformat()
@@ -322,6 +325,75 @@ async def test_load_meters_records_gas_consumption_units() -> None:
                         ],
                     }
                 ]
+
+
+class _UrlSession:
+    """Answers GETs from a URL-to-response map and records the URLs asked for."""
+
+    def __init__(self, pages: dict[str, _FakeResponse]) -> None:
+        self._pages = pages
+        self.urls: list[str] = []
+
+    def get(self, url: str, params=None, headers=None) -> _FakeResponse:
+        self.urls.append(url)
+        return self._pages[url]
+
+
+@pytest.mark.asyncio
+async def test_tariff_rates_follow_every_page() -> None:
+    api = EonNext()
+    base = (
+        "https://api.eonnext-kraken.energy/v1/products/SAINSBURYS_STANDARD/"
+        "gas-tariffs/G-1R-SAINSBURYS_STANDARD-C/standard-unit-rates/"
+    )
+    first = f"{base}?page_size=1500"
+    second = f"{base}?page=2&page_size=1500"
+    session = _UrlSession({
+        first: _FakeResponse(200, {"next": second, "results": [{"value_inc_vat": 8.1}]}),
+        second: _FakeResponse(200, {"next": None, "results": [{"value_inc_vat": 7.5}]}),
+    })
+    api._get_session = AsyncMock(return_value=session)  # type: ignore[method-assign]
+
+    rates = await api.async_get_tariff_rates(
+        "G-1R-SAINSBURYS_STANDARD-C", UNIT_RATES
+    )
+
+    assert rates == [{"value_inc_vat": 8.1}, {"value_inc_vat": 7.5}]
+    assert session.urls == [first, second]
+
+
+@pytest.mark.asyncio
+async def test_tariff_rates_raise_on_a_server_error() -> None:
+    api = EonNext()
+    url = (
+        "https://api.eonnext-kraken.energy/v1/products/SAINSBURYS_STANDARD/"
+        "electricity-tariffs/E-1R-SAINSBURYS_STANDARD-C/standing-charges/"
+        "?page_size=1500"
+    )
+    api._get_session = AsyncMock(  # type: ignore[method-assign]
+        return_value=_UrlSession({url: _FakeResponse(503)})
+    )
+
+    with pytest.raises(EonNextApiError):
+        await api.async_get_tariff_rates(
+            "E-1R-SAINSBURYS_STANDARD-C", STANDING_CHARGES
+        )
+
+
+@pytest.mark.asyncio
+async def test_tariff_agreements_include_past_ones() -> None:
+    api = EonNext()
+    old = {"validFrom": "2022-01-01T00:00:00Z", "validTo": "2023-03-31T23:00:00Z"}
+    current = {"validFrom": "2023-03-31T23:00:00Z", "validTo": None}
+    api._graphql_post = AsyncMock(  # type: ignore[method-assign]
+        return_value={
+            "data": {
+                "properties": [{
+                    "electricityMeterPoints": [
+                        {"mpan": "MPAN", "agreements": [old, current]}
+                    ],
+                    "gasMeterPoints": [{"mprn": "MPRN", "agreements": []}],
+                }]
             }
         }
     )
@@ -388,3 +460,23 @@ def test_gas_reading_uses_configured_calorific_value() -> None:
     assert isinstance(meter, GasMeter)
 
     assert meter.get_latest_reading_kwh(100.0) == gas_m3_to_kwh(100.0, 39.1)
+    agreements = await api.async_get_tariff_agreements("A-1")
+
+    assert agreements == {"MPAN": [old, current], "MPRN": []}
+    query = api._graphql_post.await_args.args[1]
+    assert query.count("agreements(includeInactive: true)") == 2
+
+
+@pytest.mark.asyncio
+async def test_tariff_rates_report_a_retired_product_as_not_found() -> None:
+    api = EonNext()
+    url = (
+        "https://api.eonnext-kraken.energy/v1/products/RETIRED/"
+        "gas-tariffs/G-1R-RETIRED-C/standard-unit-rates/?page_size=1500"
+    )
+    api._get_session = AsyncMock(  # type: ignore[method-assign]
+        return_value=_UrlSession({url: _FakeResponse(404)})
+    )
+
+    with pytest.raises(EonNextNotFoundError):
+        await api.async_get_tariff_rates("G-1R-RETIRED-C", UNIT_RATES)

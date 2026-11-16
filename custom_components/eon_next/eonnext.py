@@ -59,6 +59,10 @@ METER_TYPE_GAS = "gas"
 METER_TYPE_ELECTRIC = "electricity"
 METER_TYPE_UNKNOWN = "unknown"
 
+# Price lists in the public products API.
+UNIT_RATES = "standard-unit-rates"
+STANDING_CHARGES = "standing-charges"
+
 
 def gas_m3_to_kwh(
     m3_value: float, calorific_value: float = GAS_CALORIC_VALUE
@@ -160,6 +164,11 @@ query getAccountAgreements($accountNumber: String!) {
 """
 
 
+# The same query including past agreements, for pricing historic consumption.
+GET_AGREEMENT_HISTORY_QUERY = GET_ACCOUNT_AGREEMENTS_QUERY.replace(
+    "agreements {", "agreements(includeInactive: true) {"
+)
+
 # Treat the access token as expired this many seconds before its real
 # expiry, so a token is proactively refreshed rather than sent moments
 # before it lapses (or being rejected under mild server clock skew).
@@ -182,6 +191,10 @@ class EonNextAuthError(Exception):
 
 class EonNextApiError(Exception):
     """Raised when an API call fails."""
+
+
+class EonNextNotFoundError(EonNextApiError):
+    """Raised when the API has no such resource, e.g. a retired product."""
 
 
 @dataclass(slots=True)
@@ -748,6 +761,39 @@ class EonNext:
             return schedule
         return None
 
+    async def async_get_tariff_agreements(
+        self,
+        account_number: str,
+    ) -> dict[str, list[dict[str, Any]]] | None:
+        """Fetch every tariff agreement, past and present, per meter point.
+
+        Returns a dict keyed by supply point ID (MPAN/MPRN).
+        """
+        if not account_number:
+            return None
+
+        result = await self._graphql_post(
+            "getAccountAgreements",
+            GET_AGREEMENT_HISTORY_QUERY,
+            {"accountNumber": account_number},
+        )
+        if not self._json_contains_key_chain(result, ["data", "properties"]):
+            return None
+
+        agreements: dict[str, list[dict[str, Any]]] = {}
+        for prop in result["data"]["properties"]:
+            if not isinstance(prop, dict):
+                continue
+            for points, id_key in (
+                (prop.get("electricityMeterPoints", []), "mpan"),
+                (prop.get("gasMeterPoints", []), "mprn"),
+            ):
+                for point in points:
+                    point_id = point.get(id_key)
+                    if point_id:
+                        agreements[point_id] = point.get("agreements") or []
+        return agreements
+
     async def async_get_tariff_data(
         self,
         account_number: str,
@@ -801,6 +847,41 @@ class EonNext:
                     tariffs[mprn] = active
 
         return tariffs or None
+
+    async def async_get_tariff_rates(
+        self, tariff_code: str, kind: str
+    ) -> list[dict[str, Any]]:
+        """Fetch every rate of one ``kind`` a single-rate tariff has had.
+
+        ``kind`` is :data:`UNIT_RATES` or :data:`STANDING_CHARGES`.  The
+        products API is public, so no token is sent.
+        """
+        parts = tariff_code.split("-")
+        fuel = "gas" if parts[0] == "G" else "electricity"
+        product = "-".join(parts[2:-1])
+        url: str | None = (
+            f"{API_BASE_URL}/products/{product}/{fuel}-tariffs/{tariff_code}"
+            f"/{kind}/?page_size=1500"
+        )
+        rates: list[dict[str, Any]] = []
+        session = await self._get_session()
+        while url:
+            try:
+                async with session.get(url) as response:
+                    if response.status == 404:
+                        raise EonNextNotFoundError(f"{kind} for {tariff_code} not found")
+                    if response.status != 200:
+                        raise EonNextApiError(
+                            f"{kind} for {tariff_code} returned status {response.status}"
+                        )
+                    data = await response.json()
+            except aiohttp.ClientError as err:
+                raise EonNextApiError(
+                    f"{kind} request failed for {tariff_code}: {err}"
+                ) from err
+            rates.extend(data.get("results") or [])
+            url = data.get("next")
+        return rates
 
     @staticmethod
     def _find_active_agreement(
