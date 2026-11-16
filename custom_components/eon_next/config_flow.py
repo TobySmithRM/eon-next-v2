@@ -25,6 +25,7 @@ from .const import (
     CONF_BACKFILL_RUN_INTERVAL_MINUTES,
     CONF_API_KEY,
     CONF_EMAIL,
+    CONF_GAS_CALORIFIC_VALUE,
     CONF_PASSWORD,
     CONF_REFRESH_TOKEN,
     CONF_SHOW_CARD,
@@ -41,6 +42,7 @@ from .const import (
     DEFAULT_SHOW_CARD,
     DEFAULT_SHOW_PANEL,
     DOMAIN,
+    GAS_CALORIC_VALUE,
 )
 from .eonnext import EonNext, EonNextApiError, redact_secrets
 
@@ -273,6 +275,12 @@ class EonNextOptionsFlow(config_entries.OptionsFlow):
                             DEFAULT_BACKFILL_DELAY_SECONDS,
                         ),
                     ): vol.All(vol.Coerce(int), vol.Range(min=0, max=3600)),
+                    vol.Required(
+                        CONF_GAS_CALORIFIC_VALUE,
+                        default=options.get(
+                            CONF_GAS_CALORIFIC_VALUE, GAS_CALORIC_VALUE
+                        ),
+                    ): vol.All(vol.Coerce(float), vol.Range(min=30, max=50)),
                 }
             ),
         )

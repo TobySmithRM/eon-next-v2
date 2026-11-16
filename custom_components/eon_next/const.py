@@ -29,6 +29,7 @@ CONF_BACKFILL_DELAY_SECONDS = "backfill_delay_seconds"
 CONF_BACKFILL_REBUILD_STATISTICS = "backfill_rebuild_statistics"
 CONF_BACKFILL_INCLUDE_ELECTRICITY = "backfill_include_electricity"
 CONF_BACKFILL_INCLUDE_GAS = "backfill_include_gas"
+CONF_GAS_CALORIFIC_VALUE = "gas_calorific_value"
 PLATFORMS = ["sensor", "binary_sensor", "event"]
 DEFAULT_UPDATE_INTERVAL_MINUTES = 30
 DEFAULT_BACKFILL_ENABLED = False

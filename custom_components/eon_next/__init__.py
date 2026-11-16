@@ -18,6 +18,7 @@ from .const import (
     CARDS_URL,
     CONF_API_KEY,
     CONF_EMAIL,
+    CONF_GAS_CALORIFIC_VALUE,
     CONF_REFRESH_TOKEN,
     CONF_SHOW_CARD,
     CONF_SHOW_PANEL,
@@ -25,6 +26,7 @@ from .const import (
     DEFAULT_SHOW_PANEL,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
     DOMAIN,
+    GAS_CALORIC_VALUE,
     INTEGRATION_VERSION,
     PLATFORMS,
 )
@@ -222,6 +224,9 @@ async def _async_migrate_unique_ids(
 async def async_setup_entry(hass: HomeAssistant, entry: EonNextConfigEntry) -> bool:
     """Set up Eon Next from a config entry."""
     api = EonNext()
+    api.gas_calorific_value = entry.options.get(
+        CONF_GAS_CALORIFIC_VALUE, GAS_CALORIC_VALUE
+    )
     authenticated = False
 
     def _persist_refresh_token(refresh_token: str) -> None:

@@ -18,6 +18,7 @@ from custom_components.eon_next.const import (
     CONF_BACKFILL_ENABLED,
     CONF_API_KEY,
     CONF_EMAIL,
+    CONF_GAS_CALORIFIC_VALUE,
     CONF_PASSWORD,
     CONF_REFRESH_TOKEN,
     DOMAIN,
@@ -241,6 +242,22 @@ async def test_setup_uses_refresh_token_and_creates_status_sensor(
     assert state.state == "disabled"
     assert state.attributes["total_meters"] == 1
     assert state.attributes["pending_meters"] == 1
+
+
+@pytest.mark.asyncio
+async def test_setup_applies_gas_calorific_value_option(
+    hass: HomeAssistant,
+    enable_custom_integrations: None,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    del enable_custom_integrations
+    fake_api = FakeApi(refresh_login_result=True)
+    _patch_integration(monkeypatch, fake_api)
+    entry = _mock_entry(options={CONF_GAS_CALORIFIC_VALUE: 39.1})
+
+    await _setup_entry(hass, entry)
+
+    assert fake_api.gas_calorific_value == 39.1
 
 
 @pytest.mark.asyncio

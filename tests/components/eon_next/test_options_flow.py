@@ -18,6 +18,7 @@ from custom_components.eon_next.const import (
     CONF_BACKFILL_REBUILD_STATISTICS,
     CONF_BACKFILL_REQUESTS_PER_RUN,
     CONF_BACKFILL_RUN_INTERVAL_MINUTES,
+    CONF_GAS_CALORIFIC_VALUE,
     CONF_SHOW_CARD,
     CONF_SHOW_PANEL,
     DEFAULT_BACKFILL_CHUNK_DAYS,
@@ -30,6 +31,7 @@ from custom_components.eon_next.const import (
     DEFAULT_SHOW_CARD,
     DEFAULT_SHOW_PANEL,
     DOMAIN,
+    GAS_CALORIC_VALUE,
 )
 
 
@@ -80,3 +82,4 @@ async def test_options_flow_uses_defaults(
         == DEFAULT_BACKFILL_RUN_INTERVAL_MINUTES
     )
     assert defaults[CONF_BACKFILL_DELAY_SECONDS] == DEFAULT_BACKFILL_DELAY_SECONDS
+    assert defaults[CONF_GAS_CALORIFIC_VALUE] == GAS_CALORIC_VALUE

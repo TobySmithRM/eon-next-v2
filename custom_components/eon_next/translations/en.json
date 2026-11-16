@@ -43,7 +43,8 @@
                     "backfill_chunk_days": "Days fetched per backfill request",
                     "backfill_requests_per_run": "Backfill requests per run",
                     "backfill_run_interval_minutes": "Minutes between backfill runs",
-                    "backfill_delay_seconds": "Delay between backfill requests (seconds)"
+                    "backfill_delay_seconds": "Delay between backfill requests (seconds)",
+                    "gas_calorific_value": "Gas calorific value in MJ/m³ (shown on your gas bill)"
                 },
                 "description": "Configure dashboard visibility and backfill settings. Backfill imports historical consumption slowly to avoid API/recorder load. Each fuel can be backfilled independently; turn a fuel off and then on again to re-run just that fuel's backfill (leaving the other untouched).",
                 "title": "EON Next Options"

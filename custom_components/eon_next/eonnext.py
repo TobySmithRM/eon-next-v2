@@ -60,9 +60,11 @@ METER_TYPE_ELECTRIC = "electricity"
 METER_TYPE_UNKNOWN = "unknown"
 
 
-def gas_m3_to_kwh(m3_value: float) -> float:
+def gas_m3_to_kwh(
+    m3_value: float, calorific_value: float = GAS_CALORIC_VALUE
+) -> float:
     """Convert a gas volume in m³ to kWh."""
-    return round(m3_value * GAS_VOLUME_CORRECTION * GAS_CALORIC_VALUE / 3.6, 3)
+    return round(m3_value * GAS_VOLUME_CORRECTION * calorific_value / 3.6, 3)
 
 
 GET_ACCOUNT_DEVICES_QUERY = """
@@ -578,6 +580,7 @@ class EonNext:
 
     def __reset_accounts(self):
         self.accounts: list[EnergyAccount] = []
+        self.gas_calorific_value: float = GAS_CALORIC_VALUE
 
     async def __get_account_info(self) -> list[dict[str, Any]]:
         """Fetch account numbers and balances from the logged-in user query.
@@ -645,7 +648,9 @@ class EonNext:
             return
         for row in results:
             try:
-                row["consumption"] = gas_m3_to_kwh(float(row["consumption"]))
+                row["consumption"] = gas_m3_to_kwh(
+                    float(row["consumption"]), self.gas_calorific_value
+                )
             except (KeyError, TypeError, ValueError):
                 continue
 
@@ -1211,6 +1216,4 @@ class GasMeter(EnergyMeter):
 
     def get_latest_reading_kwh(self, m3_value: float) -> float:
         """Convert gas m3 reading to kWh."""
-        # Calorific value is a fixed approximation (38) - real per-period
-        # values vary and would need a dedicated API source.
-        return gas_m3_to_kwh(m3_value)
+        return gas_m3_to_kwh(m3_value, self.api.gas_calorific_value)
