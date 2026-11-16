@@ -19,8 +19,13 @@ from .eonnext import (
     redact_secrets,
 )
 from .const import LIVE_PAGE_SIZE
-from .statistics import async_import_consumption_statistics, live_window_start
+from .statistics import (
+    async_import_consumption_statistics,
+    async_import_cost_statistics,
+    live_window_start,
+)
 from .tariff_helpers import cost_consumption_entries, get_current_rate
+from .unit_prices import PriceHistory
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,6 +46,7 @@ class EonNextCoordinator(DataUpdateCoordinator):
             update_interval=timedelta(minutes=update_interval_minutes),
         )
         self.api = api
+        self.prices = PriceHistory(api)
         self._cost_warning_logged: set[str] = set()
         self._consumption_probed: set[str] = set()
 
@@ -159,6 +165,9 @@ class EonNextCoordinator(DataUpdateCoordinator):
                                     meter.serial,
                                     err,
                                 )
+                            await self.async_import_costs(
+                                meter, live_window_start()
+                            )
 
                     tariff = (
                         account_tariffs.get(meter.supply_point_id)
@@ -365,6 +374,20 @@ class EonNextCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Failed to fetch any data: {'; '.join(errors)}")
 
         return data
+
+    async def async_import_costs(self, meter: Any, since: datetime) -> None:
+        """Write the cost of the meter's stored consumption from ``since``."""
+        try:
+            prices = await self.prices.async_prices(meter)
+            await async_import_cost_statistics(
+                self.hass, meter.serial, meter.type, prices, since
+            )
+        except EonNextAuthError:
+            raise
+        except Exception as err:  # pylint: disable=broad-except
+            _LOGGER.debug(
+                "Cost statistics import failed for meter %s: %s", meter.serial, err
+            )
 
     async def _fetch_tariff_data(self, account) -> dict[str, dict[str, Any]] | None:
         """Fetch tariff agreement data for all meter points on an account."""
