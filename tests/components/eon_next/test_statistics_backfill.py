@@ -11,12 +11,12 @@ from __future__ import annotations
 from collections.abc import Generator
 from datetime import datetime, timedelta, timezone
 import logging
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from homeassistant.components.recorder.statistics import statistics_during_period
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.helpers import recorder as recorder_helper
 from homeassistant.setup import async_setup_component
 
@@ -165,6 +165,31 @@ async def test_live_append_survives_later_backfill(hass: HomeAssistant) -> None:
     sums = await _read_sums(hass, meter, expect=2)
     # Day B (5) then Day A (5 + 3 = 8).
     assert sums == [5.0, 8.0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("state", "waits"), [(CoreState.starting, False), (CoreState.running, True)]
+)
+async def test_live_import_waits_for_recorder_only_once_running(
+    hass: HomeAssistant, state: CoreState, waits: bool
+) -> None:
+    await _ensure_recorder(hass)
+    meter = f"STARTUP-METER-{state.name}"
+    live_hour = live_window_start() + timedelta(days=1, hours=2)
+
+    hass.set_state(state)
+    with patch(
+        "homeassistant.components.recorder.core.Recorder.async_block_till_done",
+        new_callable=AsyncMock,
+    ) as block:
+        await async_import_consumption_statistics(
+            hass, meter, "electricity", [_entry(live_hour, 3.0)]
+        )
+    hass.set_state(CoreState.running)
+
+    assert block.await_count == (1 if waits else 0)
+    assert await _read_sums(hass, meter, expect=1) == [3.0]
 
 
 # --- Pure-function tests for the recompute-forward merge (no recorder) --------
