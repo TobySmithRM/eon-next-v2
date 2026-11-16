@@ -83,7 +83,7 @@ Gas meters add:
 - EV schedules: SmartFlex planned dispatch query (`flexPlannedDispatches`)
 - Historical backfill: configurable, resumable, throttled statistics import
 - External statistics import for Energy Dashboard
-- Cost statistics for the Energy Dashboard, pricing each hour at the unit rate in force then (public products API rates for the account's tariff and payment method; single-rate and single-register time-of-use tariffs - two-register Economy-7 not yet supported)
+- Cost statistics for the Energy Dashboard, pricing each hour at the unit rate in force then (public products API rates for the account's tariff and payment method; single-rate and single-register time-of-use tariffs - two-register Economy-7 not yet supported), optionally including standing charges spread across every hour
 - Resilience: reuses previous coordinator data on transient update failures
 - Resilience: raises re-auth when auth failure is detected
 

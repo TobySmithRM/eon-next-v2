@@ -19,9 +19,11 @@ from .const import (
     CONF_API_KEY,
     CONF_EMAIL,
     CONF_GAS_CALORIFIC_VALUE,
+    CONF_INCLUDE_STANDING_CHARGE,
     CONF_REFRESH_TOKEN,
     CONF_SHOW_CARD,
     CONF_SHOW_PANEL,
+    DEFAULT_INCLUDE_STANDING_CHARGE,
     DEFAULT_SHOW_CARD,
     DEFAULT_SHOW_PANEL,
     DEFAULT_UPDATE_INTERVAL_MINUTES,
@@ -268,6 +270,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: EonNextConfigEntry) -> b
                 raise ConfigEntryAuthFailed("Failed to authenticate with Eon Next")
 
         coordinator = EonNextCoordinator(hass, api, DEFAULT_UPDATE_INTERVAL_MINUTES)
+        coordinator.include_standing_charge = entry.options.get(
+            CONF_INCLUDE_STANDING_CHARGE, DEFAULT_INCLUDE_STANDING_CHARGE
+        )
         backfill = EonNextBackfillManager(hass, entry, api, coordinator)
         cost_trackers = EonNextCostTrackerManager(hass, entry.entry_id, coordinator)
         await backfill.async_prime()
