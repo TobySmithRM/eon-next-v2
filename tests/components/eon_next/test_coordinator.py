@@ -15,7 +15,8 @@ from unittest.mock import AsyncMock, patch
 import pytest
 
 from custom_components.eon_next.coordinator import EonNextCoordinator
-from custom_components.eon_next.eonnext import EonNextApiError
+from custom_components.eon_next.eonnext import EonNextApiError, EonNextAuthError
+from custom_components.eon_next.unit_prices import PricePeriod, Prices
 
 # Fixed reference time: 2025-06-15 14:00 UTC.  All tests derive
 # "yesterday" / "today" from this constant so they never become flaky
@@ -529,3 +530,50 @@ class TestLiveRequestShape:
 
         assert granularity == "day"
         assert entries == daily["results"]
+
+
+class TestImportCosts:
+    """The coordinator prices a meter's consumption into a cost statistic."""
+
+    _PRICES = Prices([PricePeriod(_REF_NOW, None, 0.25)], [])
+
+    @staticmethod
+    def _coordinator(prices: Prices) -> EonNextCoordinator:
+        coord = EonNextCoordinator.__new__(EonNextCoordinator)
+        coord.hass = SimpleNamespace()
+        coord.prices = SimpleNamespace(async_prices=AsyncMock(return_value=prices))
+        return coord
+
+    @pytest.mark.asyncio
+    async def test_passes_the_meter_prices_to_the_import(self) -> None:
+        meter = SimpleNamespace(serial="m1", type="gas")
+        coord = self._coordinator(self._PRICES)
+        with patch(
+            "custom_components.eon_next.coordinator.async_import_cost_statistics",
+            new_callable=AsyncMock,
+        ) as import_costs:
+            await coord.async_import_costs(meter, _REF_NOW)
+
+        import_costs.assert_awaited_once_with(
+            coord.hass, "m1", "gas", self._PRICES, _REF_NOW
+        )
+
+    @pytest.mark.asyncio
+    async def test_a_failure_does_not_escape(self) -> None:
+        meter = SimpleNamespace(serial="m1", type="gas")
+        coord = self._coordinator(self._PRICES)
+        with patch(
+            "custom_components.eon_next.coordinator.async_import_cost_statistics",
+            new_callable=AsyncMock,
+            side_effect=RuntimeError("recorder gone"),
+        ):
+            await coord.async_import_costs(meter, _REF_NOW)
+
+    @pytest.mark.asyncio
+    async def test_auth_failures_are_not_hidden(self) -> None:
+        meter = SimpleNamespace(serial="m1", type="gas")
+        coord = self._coordinator(self._PRICES)
+        coord.prices.async_prices.side_effect = EonNextAuthError("expired")
+
+        with pytest.raises(EonNextAuthError):
+            await coord.async_import_costs(meter, _REF_NOW)

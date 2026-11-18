@@ -1,0 +1,163 @@
+"""Recorder-backed tests for the cost statistics that follow consumption."""
+
+from __future__ import annotations
+
+from collections.abc import Generator
+from datetime import datetime, timedelta, timezone
+import logging
+from unittest.mock import patch
+
+import pytest
+
+from homeassistant.components.recorder.statistics import (
+    get_metadata,
+    statistics_during_period,
+)
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers import recorder as recorder_helper
+from homeassistant.helpers.recorder import get_instance
+from homeassistant.setup import async_setup_component
+
+from custom_components.eon_next.statistics import (
+    async_import_cost_statistics,
+    async_import_historical_statistics,
+    cost_statistic_id_for_meter,
+)
+from custom_components.eon_next.unit_prices import PricePeriod, Prices
+
+_NOW = datetime.now(tz=timezone.utc).replace(minute=0, second=0, microsecond=0)
+_DAY_A = _NOW - timedelta(days=3)
+_DAY_B = _NOW - timedelta(days=5)
+# The price goes up from 20p to 30p between day B and day A.
+_PERIODS = [
+    PricePeriod(_DAY_B - timedelta(days=30), _DAY_A - timedelta(hours=1), 0.2),
+    PricePeriod(_DAY_A - timedelta(hours=1), None, 0.3),
+]
+_PRICES = Prices(_PERIODS, [])
+
+
+@pytest.fixture(autouse=True)
+def _quiet_sqlalchemy_engine_logs() -> Generator[None, None, None]:
+    logger = logging.getLogger("sqlalchemy.engine")
+    previous_level = logger.level
+    logger.setLevel(logging.WARNING)
+    try:
+        yield
+    finally:
+        logger.setLevel(previous_level)
+
+
+async def _ensure_recorder(hass: HomeAssistant) -> None:
+    if "recorder" in hass.config.components:
+        return
+    recorder_helper.async_initialize_recorder(hass)
+    with patch("homeassistant.components.recorder.ALLOW_IN_MEMORY_DB", True):
+        assert await async_setup_component(
+            hass,
+            "recorder",
+            {"recorder": {"db_url": "sqlite://", "commit_interval": 0}},
+        )
+    await hass.async_block_till_done()
+    await hass.data[recorder_helper.DATA_RECORDER].db_connected
+
+
+def _entry(when: datetime, kwh: float) -> dict:
+    return {"interval_start": when.isoformat(), "consumption": kwh}
+
+
+async def _cost_sums(hass: HomeAssistant, meter: str, expect: int) -> list[float]:
+    stat_id = cost_statistic_id_for_meter(meter, "electricity")
+    rows: list = []
+    for _ in range(50):
+        await hass.async_block_till_done()
+        await get_instance(hass).async_block_till_done()
+        data = await get_instance(hass).async_add_executor_job(
+            statistics_during_period,
+            hass,
+            _DAY_B - timedelta(days=1),
+            _NOW + timedelta(days=1),
+            {stat_id},
+            "hour",
+            None,
+            {"sum"},
+        )
+        rows = sorted(data.get(stat_id, []), key=lambda r: r["start"])
+        if len(rows) >= expect:
+            break
+    return [round(float(r["sum"]), 4) for r in rows]
+
+
+@pytest.mark.asyncio
+async def test_first_import_prices_all_consumption_at_the_rate_of_the_day(
+    hass: HomeAssistant,
+) -> None:
+    await _ensure_recorder(hass)
+    meter = "COST-FIRST"
+    await async_import_historical_statistics(
+        hass, meter, "electricity", [_entry(_DAY_B, 2.0), _entry(_DAY_A, 1.0)]
+    )
+
+    await async_import_cost_statistics(hass, meter, "electricity", _PRICES, _NOW)
+
+    # 2 kWh at 20p, then 1 kWh at 30p.
+    assert await _cost_sums(hass, meter, expect=2) == [0.4, 0.7]
+    cost_id = cost_statistic_id_for_meter(meter, "electricity")
+    metadata = await get_instance(hass).async_add_executor_job(
+        lambda: get_metadata(hass, statistic_ids={cost_id})
+    )
+    assert next(iter(metadata.values()))[1]["unit_of_measurement"] == "GBP"
+
+
+@pytest.mark.asyncio
+async def test_backfilled_hours_are_costed_and_later_sums_move_up(
+    hass: HomeAssistant,
+) -> None:
+    await _ensure_recorder(hass)
+    meter = "COST-SPLICE"
+    await async_import_historical_statistics(
+        hass, meter, "electricity", [_entry(_DAY_A, 1.0)]
+    )
+    await async_import_cost_statistics(hass, meter, "electricity", _PRICES, _DAY_A)
+    assert await _cost_sums(hass, meter, expect=1) == [0.3]
+
+    await async_import_historical_statistics(
+        hass, meter, "electricity", [_entry(_DAY_B, 2.0)]
+    )
+    await async_import_cost_statistics(hass, meter, "electricity", _PRICES, _DAY_B)
+
+    assert await _cost_sums(hass, meter, expect=2) == [0.4, 0.7]
+
+
+@pytest.mark.asyncio
+async def test_hours_that_lose_their_price_cost_nothing(hass: HomeAssistant) -> None:
+    await _ensure_recorder(hass)
+    meter = "COST-UNPRICED"
+    hours = [_DAY_A + timedelta(hours=h) for h in range(3)]
+    await async_import_historical_statistics(
+        hass, meter, "electricity", [_entry(hour, 1.0) for hour in hours]
+    )
+    await async_import_cost_statistics(hass, meter, "electricity", _PRICES, hours[0])
+    assert await _cost_sums(hass, meter, expect=3) == [0.3, 0.6, 0.9]
+
+    # Prices now only start at the last hour, e.g. after an agreement drops out.
+    later = [PricePeriod(hours[2], None, 0.3)]
+    await async_import_cost_statistics(
+        hass, meter, "electricity", Prices(later, []), hours[0]
+    )
+
+    assert await _cost_sums(hass, meter, expect=3) == [0.0, 0.0, 0.3]
+
+
+@pytest.mark.asyncio
+async def test_nothing_is_written_without_prices(hass: HomeAssistant) -> None:
+    await _ensure_recorder(hass)
+    meter = "COST-NONE"
+    await async_import_historical_statistics(
+        hass, meter, "electricity", [_entry(_DAY_A, 1.0)]
+    )
+
+    await async_import_cost_statistics(
+        hass, meter, "electricity", Prices([], []), _NOW
+    )
+
+    assert await _cost_sums(hass, meter, expect=0) == []

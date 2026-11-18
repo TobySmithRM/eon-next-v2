@@ -40,7 +40,11 @@ from .eonnext import (
     METER_TYPE_ELECTRIC,
     METER_TYPE_GAS,
 )
-from .statistics import async_import_historical_statistics, statistic_id_for_meter
+from .statistics import (
+    async_import_historical_statistics,
+    cost_statistic_id_for_meter,
+    statistic_id_for_meter,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -502,10 +506,9 @@ class EonNextBackfillManager:
 
         statistic_ids = [
             statistic_id
-            for statistic_id in (
-                statistic_id_for_meter(meter.serial, meter.type) for meter in to_clear
-            )
-            if statistic_id is not None
+            for meter in to_clear
+            for build_id in (statistic_id_for_meter, cost_statistic_id_for_meter)
+            if (statistic_id := build_id(meter.serial, meter.type)) is not None
         ]
         if statistic_ids:
             done = asyncio.Event()
@@ -626,6 +629,9 @@ class EonNextBackfillManager:
                         meter.type,
                         consumption,
                         daily_granularity=True,
+                    )
+                    await self.coordinator.async_import_costs(
+                        meter, dt_util.as_utc(dt_util.start_of_local_day(start_date))
                     )
 
                 meter_state["next_start"] = (end_date + timedelta(days=1)).isoformat()

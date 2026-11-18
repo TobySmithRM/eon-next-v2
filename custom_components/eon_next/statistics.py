@@ -19,6 +19,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, LIVE_WINDOW_DAYS
 from .eonnext import METER_TYPE_ELECTRIC, METER_TYPE_GAS
+from .unit_prices import Prices, price_at
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -68,6 +69,14 @@ def statistic_id_for_meter(meter_serial: str, meter_type: str) -> str | None:
     else:
         return None
     return f"{DOMAIN}:{fuel}_{sanitized_serial}_consumption"
+
+
+def cost_statistic_id_for_meter(meter_serial: str, meter_type: str) -> str | None:
+    """Build the statistic_id for the cost of a meter's consumption."""
+    consumption_id = statistic_id_for_meter(meter_serial, meter_type)
+    if consumption_id is None:
+        return None
+    return consumption_id.removesuffix("_consumption") + "_cost"
 
 
 def _group_consumption_by_hour(
@@ -542,3 +551,84 @@ async def async_import_historical_statistics(
         statistic_id,
         chunk_min.isoformat(),
     )
+
+
+async def async_import_cost_statistics(
+    hass: HomeAssistant,
+    meter_serial: str,
+    meter_type: str,
+    prices: Prices,
+    since: datetime,
+) -> None:
+    """Price the stored consumption from ``since`` and write it as a cost series.
+
+    Call this after each consumption import, with the start of the range that
+    import rewrote.  The first call, or one after a gap, prices everything from
+    the first price period or the last costed hour instead.  Hours with no
+    known price cost nothing.
+    """
+    from homeassistant.helpers.recorder import get_instance
+    from homeassistant.components.recorder.models import (
+        StatisticData,
+        StatisticMetaData,
+    )
+    from homeassistant.components.recorder.statistics import (
+        async_add_external_statistics,
+    )
+
+    consumption_id = statistic_id_for_meter(meter_serial, meter_type)
+    cost_id = cost_statistic_id_for_meter(meter_serial, meter_type)
+    if not prices.unit or consumption_id is None or cost_id is None:
+        return
+
+    end = _hour_start(dt_util.utcnow()) + timedelta(hours=1)
+    try:
+        last_costed, _ = await _get_last_stat(hass, cost_id, end)
+        start = (
+            _hour_start(prices.unit[0].start)
+            if last_costed is None
+            else min(since, last_costed)
+        )
+        consumption_base, consumption = await _fetch_baseline_and_existing(
+            hass, consumption_id, start, end
+        )
+        cost_base, existing = await _fetch_baseline_and_existing(
+            hass, cost_id, start, end
+        )
+    except StatisticsLookupError as err:
+        _LOGGER.warning("Skipping cost statistics for %s: %s", cost_id, err)
+        return
+
+    usage: dict[datetime, float] = {}
+    previous = consumption_base
+    for hour, cumulative in consumption:
+        usage[hour], previous = cumulative - previous, cumulative
+
+    # Every stored cost hour in range is rewritten too: statistics are upserted
+    # by hour, so leaving one out would keep an older cumulative sum there.
+    hours = set(usage) | {hour for hour, _ in existing}
+
+    series: list[tuple[datetime, float]] = []
+    total = cost_base  # unrounded, so rounding never accumulates
+    for hour in sorted(hours):
+        unit_price = price_at(prices.unit, hour)
+        if unit_price is not None:
+            total += usage.get(hour, 0.0) * unit_price
+        series.append((hour, round(total, 4)))
+    if not series or _series_unchanged(existing, series):
+        return
+
+    metadata = _build_statistic_metadata(meter_serial, meter_type, cost_id)
+    fuel = "gas" if meter_type == METER_TYPE_GAS else "electricity"
+    metadata.update(
+        name=f"{meter_serial} {fuel.title()} Cost",
+        unit_of_measurement="GBP",
+        unit_class=None,
+    )
+    async_add_external_statistics(
+        hass,
+        StatisticMetaData(**metadata),
+        [StatisticData(start=hour, state=total, sum=total) for hour, total in series],
+    )
+    if hass.state is CoreState.running:
+        await get_instance(hass).async_block_till_done()

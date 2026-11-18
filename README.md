@@ -102,6 +102,7 @@ When SmartFlex devices are available: smart‑charging schedule status, next cha
 - Current‑price and consumption entities wire directly into Home Assistant's Energy Dashboard.
 - Recent consumption is kept up to date automatically: every refresh re‑imports a **rolling window** (the last three full days plus today) at half‑hourly resolution, so hours that E.ON delivers late or in pieces are corrected on the next refresh.
 - A slow, resumable **historical backfill** imports older long‑term statistics (see below).
+- Each meter also gets a **cost statistic** in GBP (`eon_next:<fuel>_<serial>_cost`) for the Energy Dashboard's "Use an entity tracking the total costs" option. Each hour is priced at the unit rate in force at the time, including VAT, from E.ON's published rates for your tariff and payment method. Single‑register time‑of‑use tariffs (e.g. NEXT Drive) are priced from their published peak/off‑peak history; two‑register Economy‑7 tariffs are not yet costed.
 - A diagnostic status sensor reports backfill progress.
 
 ### Reliability

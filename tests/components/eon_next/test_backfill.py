@@ -55,7 +55,9 @@ def _manager(
         async_create_background_task=Mock(),
     )
     api = SimpleNamespace(accounts=[SimpleNamespace(meters=meters)])
-    coordinator = SimpleNamespace(set_statistics_import_enabled=Mock())
+    coordinator = SimpleNamespace(
+        set_statistics_import_enabled=Mock(), async_import_costs=AsyncMock()
+    )
     return EonNextBackfillManager(hass, entry, api, coordinator)
 
 
@@ -183,6 +185,30 @@ async def test_clear_existing_statistics_without_rebuild_marks_done() -> None:
 
 
 @pytest.mark.asyncio
+async def test_rebuild_clears_cost_statistics_too(monkeypatch) -> None:
+    manager = _manager({CONF_BACKFILL_ENABLED: True}, [_meter("m1")])
+    manager._state = {
+        "initialized": True,
+        "rebuild_done": False,
+        "lookback_days": 3650,
+        "meters": {"m1": {"next_start": _REF_DATE_ISO, "done": False, "cleared": False}},
+    }
+    manager._save_state = AsyncMock()  # type: ignore[method-assign]
+    manager.hass.loop = SimpleNamespace(call_soon_threadsafe=lambda fn: fn())
+    recorder = SimpleNamespace(
+        async_clear_statistics=Mock(side_effect=lambda ids, on_done: on_done())
+    )
+    monkeypatch.setattr(backfill_module, "get_instance", lambda _hass: recorder)
+
+    await manager._clear_existing_statistics(manager._eligible_meters())
+
+    assert recorder.async_clear_statistics.call_args.args[0] == [
+        "eon_next:electricity_m1_consumption",
+        "eon_next:electricity_m1_cost",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_run_backfill_cycle_advances_cursor_and_imports(monkeypatch) -> None:
     """A cycle should import one chunk and advance meter cursor."""
     meter = _meter("m1", "electricity")
@@ -223,6 +249,13 @@ async def test_run_backfill_cycle_advances_cursor_and_imports(monkeypatch) -> No
 
     manager.api.async_get_consumption.assert_awaited_once()
     import_mock.assert_awaited_once()
+    # The chunk is costed from the start of its first local day.
+    manager.coordinator.async_import_costs.assert_awaited_once_with(
+        meter,
+        backfill_module.dt_util.as_utc(
+            backfill_module.dt_util.start_of_local_day(_REF_DATE - timedelta(days=1))
+        ),
+    )
     # Advanced from yesterday to today; done because it reached yesterday.
     assert manager._state["meters"]["m1"]["next_start"] == _REF_DATE_ISO
     assert manager._state["meters"]["m1"]["done"] is True
@@ -497,9 +530,11 @@ async def test_clear_statistics_only_clears_uncleared_meters(monkeypatch) -> Non
 
     await manager._clear_existing_statistics(manager._eligible_meters())
 
-    # Only the gas meter (cleared=False) had its statistics cleared.
-    assert len(cleared_ids) == 1
-    assert "g1" in cleared_ids[0]
+    # Only the gas meter (cleared=False) had its statistics cleared - both its
+    # consumption and cost statistic IDs - and electricity's were untouched.
+    assert len(cleared_ids) == 2
+    assert all("g1" in sid for sid in cleared_ids)
+    assert not any("e1" in sid for sid in cleared_ids)
     assert manager._state["meters"]["g1"]["cleared"] is True
     assert manager._state["meters"]["e1"]["cleared"] is True  # unchanged
 
