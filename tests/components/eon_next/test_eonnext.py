@@ -14,13 +14,13 @@ from custom_components.eon_next.eonnext import (
     EonNext,
     EonNextApiError,
     EonNextAuthError,
+    EonNextNotFoundError,
     GasMeter,
     METER_TYPE_ELECTRIC,
     METER_TYPE_GAS,
-    gas_m3_to_kwh,
     STANDING_CHARGES,
     UNIT_RATES,
-    EonNextNotFoundError,
+    gas_m3_to_kwh,
 )
 
 _PAST_ISO = (datetime.now(tz=timezone.utc) - timedelta(days=1)).isoformat()
@@ -325,6 +325,72 @@ async def test_load_meters_records_gas_consumption_units() -> None:
                         ],
                     }
                 ]
+            }
+        }
+    )
+
+    await account._load_meters()
+
+    assert account.meters[0].consumption_units == "m³"
+
+
+@pytest.mark.asyncio
+async def test_gas_consumption_in_cubic_metres_is_converted_to_kwh() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, "m³")
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [
+        gas_m3_to_kwh(1.0),
+        gas_m3_to_kwh(0.5),
+    ]
+    assert gas_m3_to_kwh(1.0) == pytest.approx(10.795, abs=0.001)
+
+
+@pytest.mark.asyncio
+async def test_gas_consumption_already_in_kwh_is_unchanged() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, "kWh")
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [1.0, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_gas_consumption_with_unknown_units_is_unchanged() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, None)
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [1.0, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_electricity_consumption_is_never_converted() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, "m³")
+
+    assert await _consumption(api, METER_TYPE_ELECTRIC, "GAS-1") == [1.0, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_gas_consumption_uses_configured_calorific_value() -> None:
+    api = EonNext()
+    api.gas_calorific_value = 39.1
+    _account_with_gas_meter(api, "m³")
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [
+        gas_m3_to_kwh(1.0, 39.1),
+        gas_m3_to_kwh(0.5, 39.1),
+    ]
+    assert gas_m3_to_kwh(1.0, 39.1) > gas_m3_to_kwh(1.0)
+
+
+def test_gas_reading_uses_configured_calorific_value() -> None:
+    api = EonNext()
+    api.gas_calorific_value = 39.1
+    account = _account_with_gas_meter(api, "m³")
+    meter = account.meters[0]
+    assert isinstance(meter, GasMeter)
+
+    assert meter.get_latest_reading_kwh(100.0) == gas_m3_to_kwh(100.0, 39.1)
 
 
 class _UrlSession:
@@ -398,68 +464,6 @@ async def test_tariff_agreements_include_past_ones() -> None:
         }
     )
 
-    await account._load_meters()
-
-    assert account.meters[0].consumption_units == "m³"
-
-
-@pytest.mark.asyncio
-async def test_gas_consumption_in_cubic_metres_is_converted_to_kwh() -> None:
-    api = EonNext()
-    _account_with_gas_meter(api, "m³")
-
-    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [
-        gas_m3_to_kwh(1.0),
-        gas_m3_to_kwh(0.5),
-    ]
-    assert gas_m3_to_kwh(1.0) == pytest.approx(10.795, abs=0.001)
-
-
-@pytest.mark.asyncio
-async def test_gas_consumption_already_in_kwh_is_unchanged() -> None:
-    api = EonNext()
-    _account_with_gas_meter(api, "kWh")
-
-    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [1.0, 0.5]
-
-
-@pytest.mark.asyncio
-async def test_gas_consumption_with_unknown_units_is_unchanged() -> None:
-    api = EonNext()
-    _account_with_gas_meter(api, None)
-
-    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [1.0, 0.5]
-
-
-@pytest.mark.asyncio
-async def test_electricity_consumption_is_never_converted() -> None:
-    api = EonNext()
-    _account_with_gas_meter(api, "m³")
-
-    assert await _consumption(api, METER_TYPE_ELECTRIC, "GAS-1") == [1.0, 0.5]
-
-
-@pytest.mark.asyncio
-async def test_gas_consumption_uses_configured_calorific_value() -> None:
-    api = EonNext()
-    api.gas_calorific_value = 39.1
-    _account_with_gas_meter(api, "m³")
-
-    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [
-        gas_m3_to_kwh(1.0, 39.1),
-        gas_m3_to_kwh(0.5, 39.1),
-    ]
-    assert gas_m3_to_kwh(1.0, 39.1) > gas_m3_to_kwh(1.0)
-
-
-def test_gas_reading_uses_configured_calorific_value() -> None:
-    api = EonNext()
-    api.gas_calorific_value = 39.1
-    account = _account_with_gas_meter(api, "m³")
-    meter = account.meters[0]
-    assert isinstance(meter, GasMeter)
-
-    assert meter.get_latest_reading_kwh(100.0) == gas_m3_to_kwh(100.0, 39.1)
     agreements = await api.async_get_tariff_agreements("A-1")
 
     assert agreements == {"MPAN": [old, current], "MPRN": []}
