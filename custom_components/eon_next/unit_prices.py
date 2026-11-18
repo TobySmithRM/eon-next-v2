@@ -48,13 +48,17 @@ class Prices:
 
 
 def tariff_product_code(tariff_code: str) -> str | None:
-    """Return the product code of a single-rate tariff code, else None.
+    """Return the product code of a priceable tariff code, else None.
 
-    Tariff codes look like ``E-1R-<product>-<region>``.  Two-rate tariffs
-    (``2R``) have no single unit rate, so they are not priced.
+    Tariff codes look like ``E-1R-<product>-<region>`` (single rate) or
+    ``E-TOU-<product>-<region>`` (single-register time-of-use, e.g. NEXT
+    Drive).  Both publish a full rate history - including, for time-of-use,
+    the per-band peak/off-peak rates - so both are priced.  Two-rate (``2R``)
+    Economy-7 tariffs have separate day/night registers and register-split
+    consumption we cannot reconstruct, so they are not priced here.
     """
     parts = tariff_code.split("-")
-    if len(parts) < 4 or parts[0] not in ("E", "G") or parts[1] != "1R":
+    if len(parts) < 4 or parts[0] not in ("E", "G") or parts[1] not in ("1R", "TOU"):
         return None
     return "-".join(parts[2:-1])
 
@@ -72,15 +76,6 @@ def _covers(start: datetime | None, end: datetime | None, when: datetime) -> boo
 
 def _tariff_code(agreement: dict[str, Any]) -> str:
     return str((agreement.get("tariff") or {}).get("tariffCode") or "")
-
-
-def _changes_during_the_day(rates: list[dict[str, Any]]) -> bool:
-    """True for time-of-use tariffs, whose rates last less than a day."""
-    for rate in rates:
-        start, end = _parse(rate.get("valid_from")), _parse(rate.get("valid_to"))
-        if start and end and end - start < timedelta(hours=23):
-            return True
-    return False
 
 
 def _payment_method(
@@ -136,7 +131,7 @@ def build_prices(
         (active.get("tariff") or {}).get("unitRate"),
         now,
     )
-    unit = _periods(agreements, unit_rates_by_tariff, method, skip_time_of_use=True)
+    unit = _periods(agreements, unit_rates_by_tariff, method)
     if not unit:
         return Prices([], [])
     return Prices(unit, _periods(agreements, standing_charges_by_tariff, method))
@@ -146,17 +141,18 @@ def _periods(
     agreements: list[dict[str, Any]],
     rates_by_tariff: dict[str, list[dict[str, Any]]],
     method: str | None,
-    *,
-    skip_time_of_use: bool = False,
 ) -> list[PricePeriod]:
-    """Clip each tariff's rates to its agreements, in pounds including VAT."""
+    """Clip each tariff's rates to its agreements, in pounds including VAT.
+
+    Time-of-use tariffs come back as many short dated bands (e.g. an off-peak
+    00:00-06:00 and a peak 06:00-24:00 each day); they are kept as-is, and
+    :func:`price_at` resolves the band in force at any instant.
+    """
     periods: list[PricePeriod] = []
     for agreement in agreements:
         rates = rates_by_tariff.get(_tariff_code(agreement))
         agreed_from = _parse(agreement.get("validFrom"))
         if not rates or agreed_from is None:
-            continue
-        if skip_time_of_use and _changes_during_the_day(rates):
             continue
         agreed_to = _parse(agreement.get("validTo"))
         for rate in rates:

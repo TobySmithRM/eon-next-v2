@@ -74,11 +74,12 @@ def _agreement(start: str, end: str | None, code: str = _TARIFF, rate=26.595) ->
     [
         ("E-1R-SAINSBURYS_STANDARD-C", "SAINSBURYS_STANDARD"),
         ("G-1R-VAR-22-11-01-C", "VAR-22-11-01"),
+        ("E-TOU-NEXT_DRIVE_FIXED_V24-H", "NEXT_DRIVE_FIXED_V24"),
         ("E-2R-SAINSBURYS_STANDARD-C", None),
         ("nonsense", None),
     ],
 )
-def test_product_code_comes_from_single_rate_tariff_codes(code, product) -> None:
+def test_product_code_recognised_for_single_rate_and_time_of_use(code, product) -> None:
     assert tariff_product_code(code) == product
 
 
@@ -123,9 +124,11 @@ def test_standing_charges_use_the_same_payment_method() -> None:
     assert prices.standing == [PricePeriod(_utc(2026, 9, 30, 23), None, 0.42915)]
 
 
-_TIME_OF_USE = [
-    _rate("2026-11-15T00:00:00Z", "2026-11-15T07:00:00Z", 8.0, "DIRECT_DEBIT"),
-    _rate("2026-11-15T07:00:00Z", "2026-11-16T00:00:00Z", 30.0, "DIRECT_DEBIT"),
+# Single-register time-of-use tariffs (e.g. NEXT Drive) return dated
+# peak/off-peak bands with no payment-method discrimination.
+_TOU_BANDS = [
+    _rate("2026-11-15T00:00:00Z", "2026-11-15T06:00:00Z", 8.571, None),
+    _rate("2026-11-15T06:00:00Z", "2026-11-16T00:00:00Z", 27.851, None),
 ]
 
 
@@ -134,14 +137,28 @@ _TIME_OF_USE = [
     [
         (_agreement("2023-03-31T23:00:00Z", None, rate=27.3), _RATES),
         (_agreement("2023-01-01T00:00:00Z", "2024-01-01T00:00:00Z"), _RATES),
-        (_agreement("2026-01-01T00:00:00Z", None, rate=8.0), _TIME_OF_USE),
     ],
-    ids=["unrecognised-account-rate", "no-active-agreement", "time-of-use"],
+    ids=["unrecognised-account-rate", "no-active-agreement"],
 )
 def test_nothing_is_priced_when_the_rate_is_uncertain(agreement, rates) -> None:
     prices = build_prices([agreement], {_TARIFF: rates}, {_TARIFF: _STANDING}, _NOW)
 
     assert prices == Prices([], [])
+
+
+def test_time_of_use_rates_are_priced_per_band() -> None:
+    # The two daily bands are both kept; price_at resolves the one in force,
+    # so overnight usage is priced at off-peak and daytime at peak.
+    prices = build_prices(
+        [_agreement("2026-01-01T00:00:00Z", None, rate=8.571)],
+        {_TARIFF: _TOU_BANDS},
+        {_TARIFF: _STANDING},
+        _NOW,
+    )
+
+    assert len(prices.unit) == 2
+    assert price_at(prices.unit, _utc(2026, 11, 15, 3)) == 0.08571  # off-peak
+    assert price_at(prices.unit, _utc(2026, 11, 15, 9)) == 0.27851  # peak
 
 
 def test_price_at_finds_the_period_covering_an_hour() -> None:
