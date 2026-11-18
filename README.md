@@ -66,7 +66,7 @@ Notes:
 ### Meters, readings and consumption
 
 - Latest electricity and gas meter readings, with reading‑date sensors.
-- Gas conversion from m³ to kWh.
+- Gas conversion from m³ to kWh, for meter readings and for consumption from meters that report m³.
 - Daily consumption sensors with a deliberate fallback chain: REST half‑hourly → REST daily.
 - Previous‑day consumption sensor (kWh) with data‑quality attributes (`entry_count`, `data_complete`).
 

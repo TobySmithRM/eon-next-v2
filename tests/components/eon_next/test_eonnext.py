@@ -14,7 +14,10 @@ from custom_components.eon_next.eonnext import (
     EonNext,
     EonNextApiError,
     EonNextAuthError,
+    GasMeter,
     METER_TYPE_ELECTRIC,
+    METER_TYPE_GAS,
+    gas_m3_to_kwh,
 )
 
 _PAST_ISO = (datetime.now(tz=timezone.utc) - timedelta(days=1)).isoformat()
@@ -275,5 +278,92 @@ async def test_load_meters_skips_inactive() -> None:
 
     serials = {meter.serial for meter in account.meters}
     assert serials == {"ACTIVE-E", "ACTIVE-G"}
+
+
+def _account_with_gas_meter(api: EonNext, units: str | None) -> EnergyAccount:
+    account = EnergyAccount(api, "ACC-1")
+    account.meters = [GasMeter(account, "g1", "GAS-1", "9100000000", units)]
+    api.accounts = [account]
+    return account
+
+
+async def _consumption(api: EonNext, meter_type: str, serial: str) -> list[float]:
+    _seed_valid_auth(api)
+    session = _FakeSession([
+        _FakeResponse(200, {"results": [{"consumption": 1.0}, {"consumption": 0.5}]}),
+    ])
+    api._get_session = AsyncMock(return_value=session)  # type: ignore[method-assign]
+    result = await api.async_get_consumption(meter_type, "sp-1", serial, page_size=2)
+    assert result is not None
+    return [row["consumption"] for row in result["results"]]
+
+
+@pytest.mark.asyncio
+async def test_load_meters_records_gas_consumption_units() -> None:
+    api = EonNext()
+    account = EnergyAccount(api, "ACC-1")
+    api._graphql_post = AsyncMock(  # type: ignore[method-assign]
+        return_value={
+            "data": {
+                "properties": [
+                    {
+                        "electricityMeterPoints": [],
+                        "gasMeterPoints": [
+                            {
+                                "mprn": "9100000000",
+                                "meters": [
+                                    {
+                                        "id": "g1",
+                                        "serialNumber": "GAS-1",
+                                        "consumptionUnits": "m³",
+                                    }
+                                ],
+                            }
+                        ],
+                    }
+                ]
+            }
+        }
+    )
+
+    await account._load_meters()
+
+    assert account.meters[0].consumption_units == "m³"
+
+
+@pytest.mark.asyncio
+async def test_gas_consumption_in_cubic_metres_is_converted_to_kwh() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, "m³")
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [
+        gas_m3_to_kwh(1.0),
+        gas_m3_to_kwh(0.5),
+    ]
+    assert gas_m3_to_kwh(1.0) == pytest.approx(10.795, abs=0.001)
+
+
+@pytest.mark.asyncio
+async def test_gas_consumption_already_in_kwh_is_unchanged() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, "kWh")
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [1.0, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_gas_consumption_with_unknown_units_is_unchanged() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, None)
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [1.0, 0.5]
+
+
+@pytest.mark.asyncio
+async def test_electricity_consumption_is_never_converted() -> None:
+    api = EonNext()
+    _account_with_gas_meter(api, "m³")
+
+    assert await _consumption(api, METER_TYPE_ELECTRIC, "GAS-1") == [1.0, 0.5]
 
 
