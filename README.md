@@ -66,7 +66,7 @@ Notes:
 ### Meters, readings and consumption
 
 - Latest electricity and gas meter readings, with reading‑date sensors.
-- Gas conversion from m³ to kWh, for meter readings and for consumption from meters that report m³.
+- Gas conversion from m³ to kWh, for meter readings and for consumption from meters that report m³, with a configurable calorific value.
 - Daily consumption sensors with a deliberate fallback chain: REST half‑hourly → REST daily.
 - Previous‑day consumption sensor (kWh) with data‑quality attributes (`entry_count`, `data_complete`).
 
@@ -230,6 +230,10 @@ Conservative defaults:
 | Requests per run | `1` |
 | Run interval | `180` minutes |
 | Delay between requests | `300` seconds |
+
+## Gas calorific value
+
+Gas readings and m³ consumption are converted to kWh with a calorific value of `38` MJ/m³ by default. Your supplier uses the real value for your area, which is shown on your gas bill. Set it in **Settings → Devices & Services → Eon Next → Configure** so the kWh figures match your bill. The new value applies to readings imported from then on; to recalculate older statistics, rebuild them with the backfill.
 
 ## Upgrade notes
 

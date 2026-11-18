@@ -367,3 +367,24 @@ async def test_electricity_consumption_is_never_converted() -> None:
     assert await _consumption(api, METER_TYPE_ELECTRIC, "GAS-1") == [1.0, 0.5]
 
 
+@pytest.mark.asyncio
+async def test_gas_consumption_uses_configured_calorific_value() -> None:
+    api = EonNext()
+    api.gas_calorific_value = 39.1
+    _account_with_gas_meter(api, "m³")
+
+    assert await _consumption(api, METER_TYPE_GAS, "GAS-1") == [
+        gas_m3_to_kwh(1.0, 39.1),
+        gas_m3_to_kwh(0.5, 39.1),
+    ]
+    assert gas_m3_to_kwh(1.0, 39.1) > gas_m3_to_kwh(1.0)
+
+
+def test_gas_reading_uses_configured_calorific_value() -> None:
+    api = EonNext()
+    api.gas_calorific_value = 39.1
+    account = _account_with_gas_meter(api, "m³")
+    meter = account.meters[0]
+    assert isinstance(meter, GasMeter)
+
+    assert meter.get_latest_reading_kwh(100.0) == gas_m3_to_kwh(100.0, 39.1)
