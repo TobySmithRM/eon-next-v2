@@ -24,8 +24,8 @@ from .statistics import (
     async_import_cost_statistics,
     live_window_start,
 )
-from .tariff_helpers import cost_consumption_entries, get_current_rate
-from .unit_prices import PriceHistory
+from .tariff_helpers import RateLookup, cost_consumption_entries, get_current_rate
+from .unit_prices import PriceHistory, price_at
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -258,8 +258,9 @@ class EonNextCoordinator(DataUpdateCoordinator):
                     ):
                         yesterday_entries = self._yesterday_entries(consumption)
                         if len(yesterday_entries) >= 44:
+                            rate_lookup = await self.async_rate_lookup(meter)
                             energy_cost = cost_consumption_entries(
-                                meter_data, yesterday_entries
+                                meter_data, yesterday_entries, rate_lookup
                             )
                             if energy_cost is not None:
                                 meter_data["previous_day_cost"] = round(
@@ -377,6 +378,42 @@ class EonNextCoordinator(DataUpdateCoordinator):
             raise UpdateFailed(f"Failed to fetch any data: {'; '.join(errors)}")
 
         return data
+
+    def _find_meter(self, serial: str) -> Any | None:
+        """Return the meter object with ``serial``, or None."""
+        for account in self.api.accounts:
+            for meter in account.meters:
+                if meter.serial == serial:
+                    return meter
+        return None
+
+    async def async_rate_lookup(self, meter: Any) -> RateLookup | None:
+        """A GBP/kWh historic-rate lookup for ``meter``, or None if unavailable.
+
+        Backed by the same :class:`PriceHistory` the cost statistics use (cached
+        per supply point), so the dashboard peak/off-peak split and the Energy
+        Dashboard cost statistic price from the same true-historic rates.
+        Returns None for tariffs/periods with no published price history, so
+        callers fall back to the current-schedule approximation.
+        """
+        try:
+            prices = await self.prices.async_prices(meter)
+        except Exception as err:  # pylint: disable=broad-except
+            _LOGGER.debug(
+                "Historic prices unavailable for meter %s: %s",
+                getattr(meter, "serial", "?"),
+                err,
+            )
+            return None
+        if not prices.unit:
+            return None
+        periods = prices.unit
+        return lambda when: price_at(periods, when)
+
+    async def async_rate_lookup_for_serial(self, serial: str) -> RateLookup | None:
+        """A historic-rate lookup by meter serial (used by the WebSocket split)."""
+        meter = self._find_meter(serial)
+        return await self.async_rate_lookup(meter) if meter is not None else None
 
     async def async_import_costs(self, meter: Any, since: datetime) -> None:
         """Write the cost of the meter's stored consumption from ``since``."""

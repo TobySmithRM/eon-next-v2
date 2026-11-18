@@ -8,11 +8,32 @@ Provides rate lookup and off-peak detection from two data sources:
 from __future__ import annotations
 
 import datetime as dt_mod
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta, tzinfo
 from typing import Any
 
 from homeassistant.util import dt as dt_util
+
+# A caller-supplied historic-rate source (GBP/kWh for a UTC instant, or None
+# when it has no price for that time).  When one is passed to the costing
+# helpers below they prefer it - so the dashboard split and the Energy
+# Dashboard cost statistic price from the same true-historic rates - and fall
+# back to the current-schedule approximation only where it returns None.
+RateLookup = Callable[[datetime], float | None]
+
+
+def _resolve_rate(
+    meter_data: dict[str, Any],
+    when_utc: datetime,
+    rate_lookup: RateLookup | None,
+) -> float | None:
+    """Prefer a true-historic rate; fall back to the current-schedule rate."""
+    if rate_lookup is not None:
+        rate = rate_lookup(when_utc)
+        if rate is not None:
+            return rate
+    return rate_for_timestamp(meter_data, when_utc)
 
 from .tariff_patterns import TariffRateWindow, get_tariff_pattern
 
@@ -567,15 +588,18 @@ _MAX_SPLITTABLE_INTERVAL = timedelta(minutes=31)
 def split_consumption_by_peak(
     meter_data: dict[str, Any],
     entries: list[dict[str, Any]],
+    rate_lookup: RateLookup | None = None,
 ) -> dict[str, PeakSplit] | None:
     """Split half-hourly consumption into per-day peak/off-peak kWh and cost.
 
     Groups ``entries`` (``interval_start`` + ``consumption`` kWh) by local
     calendar day and, within each day, apportions usage and cost between peak
-    and off-peak using the *current* tariff windows - consistent with the
-    dashboard pricing historical usage at today's rates.  Entries coarser than
-    half-hourly (daily/hourly buckets, detected via ``interval_end``) are
-    skipped so they are never mislabelled as a single off-peak slot.
+    and off-peak.  Each slot is priced via ``rate_lookup`` (the true historic
+    rate) when supplied, falling back to the current tariff windows otherwise;
+    off-peak classification always uses the time-of-day windows.  Entries
+    coarser than half-hourly (daily/hourly buckets, detected via
+    ``interval_end``) are skipped so they are never mislabelled as a single
+    off-peak slot.
 
     Returns ``{ISO-date: PeakSplit}`` for time-of-use tariffs, or ``None`` for
     flat-rate tariffs / when nothing could be split.
@@ -602,7 +626,7 @@ def split_consumption_by_peak(
         except (TypeError, ValueError):
             continue
         when_utc = dt_util.as_utc(when)
-        rate = rate_for_timestamp(meter_data, when_utc)
+        rate = _resolve_rate(meter_data, when_utc, rate_lookup)
         off_peak = off_peak_for_timestamp(meter_data, when_utc)
         if rate is None or off_peak is None:
             continue
@@ -634,6 +658,7 @@ def split_consumption_by_peak(
 def split_hours_by_peak(
     meter_data: dict[str, Any],
     hours: list[tuple[datetime, float]],
+    rate_lookup: RateLookup | None = None,
 ) -> dict[str, PeakSplit] | None:
     """Split hourly ``(hour_start_utc, kWh)`` rows into per-day peak/off-peak.
 
@@ -665,7 +690,7 @@ def split_hours_by_peak(
         acc = [0.0, 0.0, 0.0, 0.0]  # peak_kwh, offpeak_kwh, peak_cost, offpeak_cost
         priced_any = False
         for start_utc, kwh in day_hours:
-            rate = rate_for_timestamp(meter_data, start_utc)
+            rate = _resolve_rate(meter_data, start_utc, rate_lookup)
             off_peak = off_peak_for_timestamp(meter_data, start_utc)
             if rate is None or off_peak is None:
                 continue
@@ -690,14 +715,16 @@ def split_hours_by_peak(
 def cost_consumption_entries(
     meter_data: dict[str, Any],
     entries: list[dict[str, Any]],
+    rate_lookup: RateLookup | None = None,
 ) -> float | None:
-    """Cost half-hourly consumption entries per applicable rate window.
+    """Cost half-hourly consumption entries per applicable rate.
 
-    Each entry (``interval_start`` + ``consumption`` kWh) is priced against
-    the rate in effect at its own interval - correct for time-of-use tariffs
-    where a flat/average rate materially misprices overnight-heavy usage.
-    Returns the total energy cost in GBP (excluding standing charge), or
-    ``None`` when nothing could be priced.
+    Each entry (``interval_start`` + ``consumption`` kWh) is priced via
+    ``rate_lookup`` (the true historic rate) when supplied, falling back to the
+    rate in effect at its own interval from the current schedule - correct for
+    time-of-use tariffs where a flat/average rate materially misprices
+    overnight-heavy usage.  Returns the total energy cost in GBP (excluding
+    standing charge), or ``None`` when nothing could be priced.
     """
     total = 0.0
     priced_any = False
@@ -713,7 +740,7 @@ def cost_consumption_entries(
             kwh = float(consumption)
         except (TypeError, ValueError):
             continue
-        rate = rate_for_timestamp(meter_data, dt_util.as_utc(when))
+        rate = _resolve_rate(meter_data, dt_util.as_utc(when), rate_lookup)
         if rate is None:
             continue
         total += kwh * rate

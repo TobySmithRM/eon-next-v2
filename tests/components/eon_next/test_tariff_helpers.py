@@ -607,6 +607,45 @@ class TestSplitHoursByPeak:
         assert split_hours_by_peak(_flat_meter_data(0.20), hours) is None
 
 
+class TestRateLookupInjection:
+    """A supplied rate_lookup prices the cost; classification stays time-of-day."""
+
+    def test_split_prices_with_lookup_keeps_time_of_day_classification(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        entries = [_hh(3, 1.0), _hh(6, 2.0)]  # 03:00 off-peak, 06:00 peak
+        # Historic lookup returns a flat 0.10 regardless of the schedule's 7p/25p.
+        result = split_consumption_by_peak(data, entries, lambda _when: 0.10)
+        day = result[_REF_DATE_ISO]
+        assert day.offpeak_kwh == 1.0 and day.peak_kwh == 2.0
+        assert day.offpeak_cost == pytest.approx(0.10)  # 1.0 * 0.10 (lookup)
+        assert day.peak_cost == pytest.approx(0.20)  # 2.0 * 0.10 (lookup)
+
+    def test_split_falls_back_when_lookup_returns_none(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        entries = [_hh(3, 1.0), _hh(6, 2.0)]
+        result = split_consumption_by_peak(data, entries, lambda _when: None)
+        day = result[_REF_DATE_ISO]
+        # Falls back to the current schedule rates (7p off-peak, 25p peak).
+        assert day.offpeak_cost == pytest.approx(0.07)
+        assert day.peak_cost == pytest.approx(0.50)
+
+    def test_split_hours_uses_lookup(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        hours = [(_REF_DATE.replace(hour=3), 1.0), (_REF_DATE.replace(hour=6), 2.0)]
+        result = split_hours_by_peak(data, hours, lambda _when: 0.10)
+        day = result[_REF_DATE_ISO]
+        assert day.offpeak_cost == pytest.approx(0.10)
+        assert day.peak_cost == pytest.approx(0.20)
+
+    def test_cost_consumption_entries_uses_lookup(self) -> None:
+        data = _tou_meter_data_with_schedule()
+        entries = [_hh(3, 1.0), _hh(6, 2.0)]
+        # 3.0 kWh * 0.10 = 0.30, not 1*0.07 + 2*0.25 = 0.57.
+        assert cost_consumption_entries(
+            data, entries, lambda _when: 0.10
+        ) == pytest.approx(0.30)
+
+
 class TestTariffPatternMatching:
     def test_next_drive_fixed_underscore_code_matches_6am(self) -> None:
         pattern = get_tariff_pattern("E-TOU-NEXT_DRIVE_FIXED_V24-H")

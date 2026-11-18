@@ -34,6 +34,7 @@ from .schemas import (
 from .statistics import statistic_id_for_meter
 from .tariff_helpers import (
     PeakSplit,
+    RateLookup,
     split_consumption_by_peak,
     split_hours_by_peak,
 )
@@ -181,6 +182,7 @@ def _find_meter_info(
                     "supply_point_id": data.get("supply_point_id"),
                     "api": coordinator.api,
                     "meter_data": data,
+                    "coordinator": coordinator,
                 }
     return None
 
@@ -226,7 +228,15 @@ async def ws_consumption_history(
     entries = _gap_fill(entries, days)
 
     hourly = await _fetch_hourly_stats(hass, meter_serial, meter_type, days)
-    _apply_peak_split(meter_info.get("meter_data"), entries, hourly)
+    # True-historic rate source (shared with the cost statistics); the split
+    # falls back to the current-schedule approximation where it has no price.
+    coordinator = meter_info.get("coordinator")
+    rate_lookup = (
+        await coordinator.async_rate_lookup_for_serial(meter_serial)
+        if coordinator is not None
+        else None
+    )
+    _apply_peak_split(meter_info.get("meter_data"), entries, hourly, rate_lookup)
 
     connection.send_result(
         msg["id"],
@@ -238,6 +248,7 @@ def _apply_peak_split(
     meter_data: dict[str, Any] | None,
     entries: list[ConsumptionHistoryEntry],
     hourly_stats: list[tuple[datetime, float]],
+    rate_lookup: RateLookup | None = None,
 ) -> None:
     """Overlay a peak/off-peak breakdown onto the daily history in place.
 
@@ -255,10 +266,12 @@ def _apply_peak_split(
     if not meter_data:
         return
     split: dict[str, PeakSplit] = {}
-    stats_split = split_hours_by_peak(meter_data, hourly_stats)
+    stats_split = split_hours_by_peak(meter_data, hourly_stats, rate_lookup)
     if stats_split:
         split.update(stats_split)
-    buffer_split = split_consumption_by_peak(meter_data, meter_data.get("consumption") or [])
+    buffer_split = split_consumption_by_peak(
+        meter_data, meter_data.get("consumption") or [], rate_lookup
+    )
     if buffer_split:
         # Half-hourly buffer is more precise, so it wins for the recent days.
         split.update(buffer_split)

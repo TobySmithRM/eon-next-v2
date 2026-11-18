@@ -547,6 +547,19 @@ class TestImportCosts:
         return coord
 
     @pytest.mark.asyncio
+    async def test_rate_lookup_prices_from_history(self) -> None:
+        coord = self._coordinator(self._PRICES)  # one period of 0.25 from _REF_NOW
+        lookup = await coord.async_rate_lookup(SimpleNamespace(serial="m1"))
+        assert lookup is not None
+        assert lookup(_REF_NOW) == 0.25
+        assert lookup(_REF_NOW - timedelta(hours=1)) is None  # before any period
+
+    @pytest.mark.asyncio
+    async def test_rate_lookup_is_none_without_price_history(self) -> None:
+        coord = self._coordinator(Prices([], []))
+        assert await coord.async_rate_lookup(SimpleNamespace(serial="m1")) is None
+
+    @pytest.mark.asyncio
     async def test_reprices_everything_once_then_only_what_changed(self) -> None:
         meter = SimpleNamespace(serial="m1", type="gas")
         coord = self._coordinator(self._PRICES)

@@ -1091,9 +1091,9 @@ function e(e,t,s,a){var i,r=arguments.length,n=r<3?t:null===a?a=Object.getOwnPro
                 autumn.
               </div>`:q}
         <div class="footnote faint">
-          ${this._memoSplit?I`Days with time-of-use detail are split into peak and off-peak. `:q}Costs
-          use today's unit rates applied to historical usage - an approximation, as no
-          historical rate series is available.
+          ${this._memoSplit?I`Time-of-use days are split into peak and off-peak and priced at the
+                rate in force at the time. `:q}Other
+          days apply today's unit rate to historical usage - an approximation.
         </div>
       </div>
     `}_renderSplitSummary(){const e=this._memoSplit;if(!e)return q;const t=e.offpeakKwh+e.peakKwh,s=t>0?Math.round(e.offpeakKwh/t*100):0;return I`

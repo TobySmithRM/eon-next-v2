@@ -251,11 +251,11 @@ class EonMeterDetailPage extends LitElement {
         <div class="footnote faint">
           ${
             this._memoSplit
-              ? html`Days with time-of-use detail are split into peak and off-peak. `
+              ? html`Time-of-use days are split into peak and off-peak and priced at the
+                rate in force at the time. `
               : nothing
-          }Costs
-          use today's unit rates applied to historical usage - an approximation, as no
-          historical rate series is available.
+          }Other
+          days apply today's unit rate to historical usage - an approximation.
         </div>
       </div>
     `
