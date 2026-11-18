@@ -14,6 +14,8 @@ from custom_components.eon_next.const import (
     CONF_BACKFILL_CHUNK_DAYS,
     CONF_BACKFILL_DELAY_SECONDS,
     CONF_BACKFILL_ENABLED,
+    CONF_BACKFILL_INCLUDE_ELECTRICITY,
+    CONF_BACKFILL_INCLUDE_GAS,
     CONF_BACKFILL_LOOKBACK_DAYS,
     CONF_BACKFILL_REBUILD_STATISTICS,
     CONF_BACKFILL_REQUESTS_PER_RUN,
@@ -387,3 +389,157 @@ def test_meters_progress_invalid_next_start(monkeypatch) -> None:
     prog = status["meters_progress"]["m1"]
     assert prog["days_completed"] == 0
     assert prog["days_remaining"] == 10
+
+
+# --- Per-fuel backfill switches -------------------------------------------
+
+
+def test_eligible_meters_respects_fuel_switches() -> None:
+    meters = [_meter("e1", "electricity"), _meter("g1", "gas")]
+
+    def serials(options: dict) -> set[str]:
+        return {m.serial for m in _manager(options, meters)._eligible_meters()}
+
+    assert serials({}) == {"e1", "g1"}  # default: both
+    assert serials({CONF_BACKFILL_INCLUDE_GAS: False}) == {"e1"}
+    assert serials({CONF_BACKFILL_INCLUDE_ELECTRICITY: False}) == {"g1"}
+    assert (
+        serials(
+            {
+                CONF_BACKFILL_INCLUDE_ELECTRICITY: False,
+                CONF_BACKFILL_INCLUDE_GAS: False,
+            }
+        )
+        == set()
+    )
+
+
+@pytest.mark.asyncio
+async def test_initialize_marks_meters_not_cleared() -> None:
+    meters = [_meter("e1", "electricity"), _meter("g1", "gas")]
+    manager = _manager({CONF_BACKFILL_LOOKBACK_DAYS: 10}, meters)
+    manager._state = {
+        "initialized": False,
+        "rebuild_done": False,
+        "lookback_days": 0,
+        "meters": {},
+        "include": {},
+    }
+    manager._save_state = AsyncMock()  # type: ignore[method-assign]
+
+    await manager._initialize_or_reset_progress(manager._eligible_meters())
+
+    assert manager._state["meters"]["e1"]["cleared"] is False
+    assert manager._state["meters"]["g1"]["cleared"] is False
+    assert manager._state["include"] == {"electricity": True, "gas": True}
+
+
+@pytest.mark.asyncio
+async def test_reinclusion_resets_only_that_fuel() -> None:
+    meters = [_meter("e1", "electricity"), _meter("g1", "gas")]
+    manager = _manager(
+        {CONF_BACKFILL_LOOKBACK_DAYS: 10, CONF_BACKFILL_INCLUDE_GAS: True}, meters
+    )
+    # Both previously finished; gas was last switched OFF.
+    manager._state = {
+        "initialized": True,
+        "rebuild_done": True,
+        "lookback_days": 10,
+        "meters": {
+            "e1": {"next_start": _REF_NEXT_ISO, "done": True, "cleared": True},
+            "g1": {"next_start": _REF_NEXT_ISO, "done": True, "cleared": True},
+        },
+        "include": {"electricity": True, "gas": False},
+    }
+    manager._save_state = AsyncMock()  # type: ignore[method-assign]
+
+    await manager._initialize_or_reset_progress(manager._eligible_meters())
+
+    # Gas re-included -> reset for a fresh re-run (and re-clear).
+    assert manager._state["meters"]["g1"]["done"] is False
+    assert manager._state["meters"]["g1"]["cleared"] is False
+    assert manager._state["meters"]["g1"]["next_start"] == _LOOKBACK_START_ISO
+    # Electricity left exactly as it was.
+    assert manager._state["meters"]["e1"]["done"] is True
+    assert manager._state["meters"]["e1"]["cleared"] is True
+    assert manager._state["meters"]["e1"]["next_start"] == _REF_NEXT_ISO
+    assert manager._state["include"] == {"electricity": True, "gas": True}
+
+
+@pytest.mark.asyncio
+async def test_clear_statistics_only_clears_uncleared_meters(monkeypatch) -> None:
+    meters = [_meter("e1", "electricity"), _meter("g1", "gas")]
+    manager = _manager({CONF_BACKFILL_REBUILD_STATISTICS: True}, meters)
+    manager._state = {
+        "initialized": True,
+        "rebuild_done": False,
+        "lookback_days": 10,
+        "meters": {
+            "e1": {"next_start": _REF_DATE_ISO, "done": False, "cleared": True},
+            "g1": {"next_start": _REF_DATE_ISO, "done": False, "cleared": False},
+        },
+        "include": {"electricity": True, "gas": True},
+    }
+    manager._save_state = AsyncMock()  # type: ignore[method-assign]
+
+    cleared_ids: list[str] = []
+
+    def fake_clear(ids, on_done):
+        cleared_ids.extend(ids)
+        on_done()
+
+    monkeypatch.setattr(
+        backfill_module,
+        "get_instance",
+        lambda hass: SimpleNamespace(async_clear_statistics=fake_clear),
+    )
+    manager.hass.loop = SimpleNamespace(call_soon_threadsafe=lambda fn: fn())
+
+    await manager._clear_existing_statistics(manager._eligible_meters())
+
+    # Only the gas meter (cleared=False) had its statistics cleared.
+    assert len(cleared_ids) == 1
+    assert "g1" in cleared_ids[0]
+    assert manager._state["meters"]["g1"]["cleared"] is True
+    assert manager._state["meters"]["e1"]["cleared"] is True  # unchanged
+
+
+@pytest.mark.asyncio
+async def test_ensure_state_loaded_migrates_cleared_from_rebuild_done() -> None:
+    manager = _manager({}, [_meter("e1", "electricity")])
+    old_state = {
+        "initialized": True,
+        "rebuild_done": True,
+        "lookback_days": 10,
+        "meters": {"e1": {"next_start": _REF_DATE_ISO, "done": True}},
+    }
+    manager._store = SimpleNamespace(  # type: ignore[assignment]
+        async_load=AsyncMock(return_value=old_state),
+        async_save=AsyncMock(),
+    )
+
+    await manager._ensure_state_loaded()
+
+    # Missing per-meter "cleared" inherits the old global rebuild_done (True),
+    # so an established series is never re-wiped on upgrade.
+    assert manager._state["meters"]["e1"]["cleared"] is True
+    assert manager._state["include"] == {}
+
+
+@pytest.mark.asyncio
+async def test_ensure_state_loaded_migrates_uncleared_when_rebuild_not_done() -> None:
+    manager = _manager({}, [_meter("e1", "electricity")])
+    old_state = {
+        "initialized": True,
+        "rebuild_done": False,
+        "lookback_days": 10,
+        "meters": {"e1": {"next_start": _REF_DATE_ISO, "done": False}},
+    }
+    manager._store = SimpleNamespace(  # type: ignore[assignment]
+        async_load=AsyncMock(return_value=old_state),
+        async_save=AsyncMock(),
+    )
+
+    await manager._ensure_state_loaded()
+
+    assert manager._state["meters"]["e1"]["cleared"] is False

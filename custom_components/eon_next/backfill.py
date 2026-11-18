@@ -17,6 +17,8 @@ from .const import (
     CONF_BACKFILL_CHUNK_DAYS,
     CONF_BACKFILL_DELAY_SECONDS,
     CONF_BACKFILL_ENABLED,
+    CONF_BACKFILL_INCLUDE_ELECTRICITY,
+    CONF_BACKFILL_INCLUDE_GAS,
     CONF_BACKFILL_LOOKBACK_DAYS,
     CONF_BACKFILL_REBUILD_STATISTICS,
     CONF_BACKFILL_REQUESTS_PER_RUN,
@@ -24,6 +26,8 @@ from .const import (
     DEFAULT_BACKFILL_CHUNK_DAYS,
     DEFAULT_BACKFILL_DELAY_SECONDS,
     DEFAULT_BACKFILL_ENABLED,
+    DEFAULT_BACKFILL_INCLUDE_ELECTRICITY,
+    DEFAULT_BACKFILL_INCLUDE_GAS,
     DEFAULT_BACKFILL_LOOKBACK_DAYS,
     DEFAULT_BACKFILL_REBUILD_STATISTICS,
     DEFAULT_BACKFILL_REQUESTS_PER_RUN,
@@ -48,6 +52,11 @@ class MeterBackfillState(TypedDict):
 
     next_start: str
     done: bool
+    # Whether this meter's statistics have been cleared for the current backfill
+    # run (per-meter so one fuel can be re-run without disturbing the other).
+    # Read with ``.get("cleared", True)`` so pre-upgrade state is treated as
+    # already cleared and never surprise-wiped.
+    cleared: bool
 
 
 class BackfillState(TypedDict):
@@ -57,6 +66,9 @@ class BackfillState(TypedDict):
     rebuild_done: bool
     lookback_days: int
     meters: dict[str, MeterBackfillState]
+    # Last-applied per-fuel include flags, so a fuel toggled off then on again
+    # is detected as a re-run request for just that fuel.
+    include: dict[str, bool]
 
 
 class BackfillStatus(TypedDict):
@@ -189,6 +201,27 @@ class EonNextBackfillManager:
             )
         )
 
+    def _backfill_include_electricity(self) -> bool:
+        return bool(
+            self.entry.options.get(
+                CONF_BACKFILL_INCLUDE_ELECTRICITY, DEFAULT_BACKFILL_INCLUDE_ELECTRICITY
+            )
+        )
+
+    def _backfill_include_gas(self) -> bool:
+        return bool(
+            self.entry.options.get(
+                CONF_BACKFILL_INCLUDE_GAS, DEFAULT_BACKFILL_INCLUDE_GAS
+            )
+        )
+
+    def _include_flags(self) -> dict[str, bool]:
+        """Current per-fuel include flags, keyed by meter type."""
+        return {
+            METER_TYPE_ELECTRIC: self._backfill_include_electricity(),
+            METER_TYPE_GAS: self._backfill_include_gas(),
+        }
+
     async def _ensure_state_loaded(self) -> None:
         if self._state is not None:
             return
@@ -199,7 +232,15 @@ class EonNextBackfillManager:
             "rebuild_done": bool(loaded.get("rebuild_done", False)) if loaded else False,
             "lookback_days": int(loaded.get("lookback_days", 0)) if loaded else 0,
             "meters": dict(loaded.get("meters", {})) if loaded else {},
+            "include": dict(loaded.get("include", {})) if loaded else {},
         }
+        # Migrate pre-per-fuel state: a meter saved without a per-meter
+        # ``cleared`` flag inherits the old global ``rebuild_done`` value, so
+        # upgrading preserves whether its statistics were already cleared and
+        # never re-wipes an established series.
+        rebuild_done = self._state["rebuild_done"]
+        for meter_state in self._state["meters"].values():
+            meter_state.setdefault("cleared", rebuild_done)
 
     async def _save_state(self) -> None:
         if self._state is None:
@@ -208,10 +249,16 @@ class EonNextBackfillManager:
         self._notify_listeners()
 
     def _eligible_meters(self) -> list[Any]:
+        include = self._include_flags()
         meters: list[Any] = []
         for account in self.api.accounts:
             for meter in account.meters:
                 if meter.type not in (METER_TYPE_GAS, METER_TYPE_ELECTRIC):
+                    continue
+                # Per-fuel include switches: an excluded fuel's meters are never
+                # initialised, cleared, processed or shown, so the other fuel's
+                # statistics are left completely untouched.
+                if not include.get(meter.type, True):
                     continue
                 if not meter.serial or not meter.supply_point_id:
                     continue
@@ -340,15 +387,17 @@ class EonNextBackfillManager:
         today = dt_util.now().date()
         start = today - timedelta(days=lookback_days - 1)
         stored_lookback = int(self._state["lookback_days"])
+        include_now = self._include_flags()
+
+        def fresh() -> MeterBackfillState:
+            return {"next_start": start.isoformat(), "done": False, "cleared": False}
 
         if not self._state["initialized"]:
             self._state["initialized"] = True
             self._state["rebuild_done"] = False
             self._state["lookback_days"] = lookback_days
-            self._state["meters"] = {
-                meter.serial: {"next_start": start.isoformat(), "done": False}
-                for meter in meters
-            }
+            self._state["include"] = include_now
+            self._state["meters"] = {meter.serial: fresh() for meter in meters}
             await self._save_state()
             _LOGGER.debug(
                 "Initialized historical backfill progress from %s (%d days)",
@@ -365,11 +414,9 @@ class EonNextBackfillManager:
             # destroy already-imported history the user asked to keep.
             self._state["lookback_days"] = lookback_days
             self._state["rebuild_done"] = False
+            self._state["include"] = include_now
             for meter in meters:
-                self._state["meters"][meter.serial] = {
-                    "next_start": start.isoformat(),
-                    "done": False,
-                }
+                self._state["meters"][meter.serial] = fresh()
             await self._save_state()
             _LOGGER.debug(
                 "Extended historical backfill window to %d days (from %s)",
@@ -385,13 +432,30 @@ class EonNextBackfillManager:
             self._state["lookback_days"] = lookback_days
             changed = True
 
+        # Re-inclusion: a fuel toggled off and then back on is a request to
+        # re-run just that fuel - reset its meters (so its stats are re-cleared
+        # and re-imported) while the other fuel is left exactly as it was.  A
+        # fuel that was already on, or that has no prior snapshot (pre-upgrade
+        # state), is never reset, so upgrades don't surprise-wipe anyone.
+        include_prev = self._state.get("include") or {}
+        reinstated = {
+            fuel
+            for fuel, on in include_now.items()
+            if on and include_prev.get(fuel, True) is False
+        }
+        if include_prev != include_now:
+            self._state["include"] = include_now
+            changed = True
+        for meter in meters:
+            if meter.type in reinstated:
+                self._state["meters"][meter.serial] = fresh()
+                self._state["rebuild_done"] = False
+                changed = True
+
         for meter in meters:
             if meter.serial in self._state["meters"]:
                 continue
-            self._state["meters"][meter.serial] = {
-                "next_start": start.isoformat(),
-                "done": False,
-            }
+            self._state["meters"][meter.serial] = fresh()
             changed = True
         if changed:
             await self._save_state()
@@ -399,49 +463,74 @@ class EonNextBackfillManager:
     async def _clear_existing_statistics(self, meters: list[Any]) -> None:
         if self._state is None:
             return
+
+        meter_states = self._state["meters"]
+
         if not self._backfill_rebuild_statistics():
+            # Not clearing: mark eligible meters cleared so they are not retried,
+            # and note the run won't wipe pre-existing statistics.
+            changed = False
+            for meter in meters:
+                state = meter_states.get(meter.serial)
+                if state is not None and not state.get("cleared", True):
+                    state["cleared"] = True
+                    changed = True
+            if not self._state["rebuild_done"]:
+                self._state["rebuild_done"] = True
+                changed = True
+                _LOGGER.info(
+                    "Historical backfill is running without clearing existing "
+                    "statistics; results may be partial if prior statistics "
+                    "already exist"
+                )
+            if changed:
+                await self._save_state()
+            return
+
+        # Clear only the meters not yet cleared for this run, so re-running a
+        # single fuel never touches the other fuel's statistics.
+        to_clear = [
+            meter
+            for meter in meters
+            if not meter_states.get(meter.serial, {}).get("cleared", True)
+        ]
+        if not to_clear:
             if not self._state["rebuild_done"]:
                 self._state["rebuild_done"] = True
                 await self._save_state()
-                _LOGGER.info(
-                    "Historical backfill is running without clearing existing statistics; "
-                    "results may be partial if prior statistics already exist"
-                )
-            return
-        if self._state["rebuild_done"]:
             return
 
         statistic_ids = [
             statistic_id
             for statistic_id in (
-                statistic_id_for_meter(meter.serial, meter.type) for meter in meters
+                statistic_id_for_meter(meter.serial, meter.type) for meter in to_clear
             )
             if statistic_id is not None
         ]
-        if not statistic_ids:
-            self._state["rebuild_done"] = True
-            await self._save_state()
-            return
+        if statistic_ids:
+            done = asyncio.Event()
+            # The recorder calls ``on_done`` from the recorder thread;
+            # ``Event.set`` is not thread-safe, so hop back onto the event loop
+            # to wake the waiter promptly instead of appearing to time out.
+            get_instance(self.hass).async_clear_statistics(
+                statistic_ids,
+                on_done=lambda: self.hass.loop.call_soon_threadsafe(done.set),
+            )
+            try:
+                await asyncio.wait_for(done.wait(), timeout=120)
+            except asyncio.TimeoutError:
+                _LOGGER.warning(
+                    "Timed out waiting for recorder statistics clear to complete"
+                )
+            _LOGGER.info(
+                "Cleared %d statistics IDs before historical backfill rebuild",
+                len(statistic_ids),
+            )
 
-        done = asyncio.Event()
-        # The recorder calls ``on_done`` from the recorder thread; ``Event.set``
-        # is not thread-safe, so hop back onto the event loop to wake the waiter
-        # promptly instead of appearing to time out.
-        get_instance(self.hass).async_clear_statistics(
-            statistic_ids,
-            on_done=lambda: self.hass.loop.call_soon_threadsafe(done.set),
-        )
-        try:
-            await asyncio.wait_for(done.wait(), timeout=120)
-        except asyncio.TimeoutError:
-            _LOGGER.warning("Timed out waiting for recorder statistics clear to complete")
-
+        for meter in to_clear:
+            meter_states[meter.serial]["cleared"] = True
         self._state["rebuild_done"] = True
         await self._save_state()
-        _LOGGER.info(
-            "Cleared %d statistics IDs before historical backfill rebuild",
-            len(statistic_ids),
-        )
 
     async def _run_backfill_cycle(self) -> None:
         if self._state is None or not self._backfill_enabled():
@@ -479,9 +568,11 @@ class EonNextBackfillManager:
                 # daily bucket would be double-counted once half-hours arrive.
                 yesterday = today - timedelta(days=1)
 
+                # In practice init seeds every eligible meter, so the default
+                # is a type-complete fallback that is never actually used.
                 meter_state = self._state["meters"].setdefault(
                     meter.serial,
-                    {"next_start": today.isoformat(), "done": False},
+                    {"next_start": today.isoformat(), "done": False, "cleared": True},
                 )
                 if meter_state["done"]:
                     continue

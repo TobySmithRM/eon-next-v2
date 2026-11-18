@@ -17,6 +17,8 @@ from .const import (
     CONF_BACKFILL_CHUNK_DAYS,
     CONF_BACKFILL_DELAY_SECONDS,
     CONF_BACKFILL_ENABLED,
+    CONF_BACKFILL_INCLUDE_ELECTRICITY,
+    CONF_BACKFILL_INCLUDE_GAS,
     CONF_BACKFILL_LOOKBACK_DAYS,
     CONF_BACKFILL_REBUILD_STATISTICS,
     CONF_BACKFILL_REQUESTS_PER_RUN,
@@ -30,6 +32,8 @@ from .const import (
     DEFAULT_BACKFILL_CHUNK_DAYS,
     DEFAULT_BACKFILL_DELAY_SECONDS,
     DEFAULT_BACKFILL_ENABLED,
+    DEFAULT_BACKFILL_INCLUDE_ELECTRICITY,
+    DEFAULT_BACKFILL_INCLUDE_GAS,
     DEFAULT_BACKFILL_LOOKBACK_DAYS,
     DEFAULT_BACKFILL_REBUILD_STATISTICS,
     DEFAULT_BACKFILL_REQUESTS_PER_RUN,
@@ -218,6 +222,20 @@ class EonNextOptionsFlow(config_entries.OptionsFlow):
                         default=options.get(
                             CONF_BACKFILL_REBUILD_STATISTICS,
                             DEFAULT_BACKFILL_REBUILD_STATISTICS,
+                        ),
+                    ): bool,
+                    vol.Required(
+                        CONF_BACKFILL_INCLUDE_ELECTRICITY,
+                        default=options.get(
+                            CONF_BACKFILL_INCLUDE_ELECTRICITY,
+                            DEFAULT_BACKFILL_INCLUDE_ELECTRICITY,
+                        ),
+                    ): bool,
+                    vol.Required(
+                        CONF_BACKFILL_INCLUDE_GAS,
+                        default=options.get(
+                            CONF_BACKFILL_INCLUDE_GAS,
+                            DEFAULT_BACKFILL_INCLUDE_GAS,
                         ),
                     ): bool,
                     vol.Required(

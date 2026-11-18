@@ -216,12 +216,15 @@ The two importers split the timeline so they never double‑count: the live refr
 - Progress is persisted and resumes across Home Assistant restarts.
 - To force a true full‑history rebuild, enable the option to clear/rebuild existing Eon statistics first.
 - Backfill runs **alongside** live 30‑minute imports rather than suspending them: each historical chunk is spliced into the existing statistics and later cumulative sums are recomputed, so current‑day Energy Dashboard data keeps updating while history fills in.
+- **Per‑fuel control.** Electricity and gas each have their own "Backfill … meters" switch (both on by default). Turning one off leaves that fuel's statistics completely untouched. To **re‑run just one fuel** — for example to rebuild gas after the m³→kWh fix without disturbing electricity — turn that fuel **off, save, then on again**: re‑including a fuel resets only its meters, so it re‑clears (if rebuild is on) and re‑imports that fuel alone.
 
 Conservative defaults:
 
 | Option | Default |
 |---|---|
 | Backfill enabled | off |
+| Backfill electricity meters | on |
+| Backfill gas meters | on |
 | Lookback | `3650` days |
 | Chunk size | `1` day per request |
 | Requests per run | `1` |
@@ -229,6 +232,8 @@ Conservative defaults:
 | Delay between requests | `300` seconds |
 
 ## Upgrade notes
+
+**Gas from m³ meters is now converted to kWh.** Smart gas meters that report in cubic metres were previously stored as kWh, making gas consumption, cost and the Energy Dashboard roughly **11× too low**. New data is now correct automatically. However, **gas statistics already imported in m³ are not re‑converted on their own** — the backfill keeps a per‑meter cursor and won't re‑fetch finished days — so you may see a step in the gas Energy Dashboard (old m³ values next to new kWh ones). To fix the history, re‑run the gas backfill on its own: **Settings → Devices & Services → Eon Next → Configure**, turn **Backfill gas meters** off and save, then turn it back on (with "Clear and rebuild statistics" enabled). This rebuilds gas in kWh and leaves electricity untouched. See *Historical backfill → Per‑fuel control*.
 
 Consumption statistics now use a rolling live window (see *Historical backfill*). On first refresh after upgrading, any daily statistic that backfill left within the last three days is replaced by that day's real half‑hourly hours rather than added to. Older statistics are untouched.
 
