@@ -14,7 +14,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from homeassistant.const import UnitOfEnergy
-from homeassistant.core import HomeAssistant
+from homeassistant.core import CoreState, HomeAssistant
 from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, LIVE_WINDOW_DAYS
@@ -274,8 +274,10 @@ async def async_import_consumption_statistics(
         statistics,
     )
     # Make the write durable so a concurrent backfill chunk (which reads rows
-    # back to rebase sums) never sees a stale series.
-    await get_instance(hass).async_block_till_done()
+    # back to rebase sums) never sees a stale series.  The recorder does not
+    # commit until Home Assistant has started, so don't wait during startup.
+    if hass.state is CoreState.running:
+        await get_instance(hass).async_block_till_done()
     _LOGGER.debug(
         "Spliced %d hourly statistics for %s from %s",
         len(statistics),
