@@ -191,7 +191,7 @@ async def test_rebuild_clears_cost_statistics_too(monkeypatch) -> None:
         "initialized": True,
         "rebuild_done": False,
         "lookback_days": 3650,
-        "meters": {"m1": {"next_start": _REF_DATE_ISO, "done": False}},
+        "meters": {"m1": {"next_start": _REF_DATE_ISO, "done": False, "cleared": False}},
     }
     manager._save_state = AsyncMock()  # type: ignore[method-assign]
     manager.hass.loop = SimpleNamespace(call_soon_threadsafe=lambda fn: fn())
@@ -530,9 +530,11 @@ async def test_clear_statistics_only_clears_uncleared_meters(monkeypatch) -> Non
 
     await manager._clear_existing_statistics(manager._eligible_meters())
 
-    # Only the gas meter (cleared=False) had its statistics cleared.
-    assert len(cleared_ids) == 1
-    assert "g1" in cleared_ids[0]
+    # Only the gas meter (cleared=False) had its statistics cleared - both its
+    # consumption and cost statistic IDs - and electricity's were untouched.
+    assert len(cleared_ids) == 2
+    assert all("g1" in sid for sid in cleared_ids)
+    assert not any("e1" in sid for sid in cleared_ids)
     assert manager._state["meters"]["g1"]["cleared"] is True
     assert manager._state["meters"]["e1"]["cleared"] is True  # unchanged
 
