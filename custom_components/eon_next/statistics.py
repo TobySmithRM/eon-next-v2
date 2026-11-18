@@ -19,7 +19,7 @@ from homeassistant.util import dt as dt_util
 
 from .const import DOMAIN, LIVE_WINDOW_DAYS
 from .eonnext import METER_TYPE_ELECTRIC, METER_TYPE_GAS
-from .unit_prices import Prices, price_at
+from .unit_prices import PricePeriod, Prices, price_at
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -553,19 +553,87 @@ async def async_import_historical_statistics(
     )
 
 
+def _hours_between(start: datetime, last: datetime) -> list[datetime]:
+    """Every hour from ``start`` up to and including ``last``."""
+    count = int((last - start) / timedelta(hours=1)) + 1
+    return [start + timedelta(hours=offset) for offset in range(max(count, 0))]
+
+
+def _local_day_start(when: datetime) -> datetime:
+    """The UTC hour in which the local day containing ``when`` starts.
+
+    Statistics need whole UTC hours, so in time zones with a half-hour offset
+    the day starts at the hour before local midnight.
+    """
+    day = dt_util.as_local(when).date()
+    return _hour_start(dt_util.as_utc(dt_util.start_of_local_day(day)))
+
+
+def _next_local_day_start(day_start: datetime) -> datetime:
+    # 25 hours on always lands in the next day, even when it is 23 or 25 long.
+    return _local_day_start(day_start + timedelta(hours=25))
+
+
+def _hours_in_local_day(hour: datetime) -> int:
+    """24, or 23/25 on the days the clocks change."""
+    day_start = _local_day_start(hour)
+    return round((_next_local_day_start(day_start) - day_start) / timedelta(hours=1))
+
+
+def _standing_charge_shares(
+    periods: list[PricePeriod],
+    usage_hours: set[datetime],
+    start: datetime,
+    this_hour: datetime,
+) -> dict[datetime, float]:
+    """Spread each day's standing charge from ``start`` (a day start) to now.
+
+    Each hour gets an equal share, with or without usage.  A past day stored
+    as one daily total takes the whole charge on that row instead: its usage
+    is already a single figure, and it keeps the history to one row a day.
+    """
+    usage_by_day: dict[datetime, list[datetime]] = defaultdict(list)
+    for hour in usage_hours:
+        usage_by_day[_local_day_start(hour)].append(hour)
+
+    shares: dict[datetime, float] = {}
+    day_start = start
+    while day_start <= this_hour:
+        day_end = _next_local_day_start(day_start)
+        daily = price_at(periods, day_start)
+        if daily is not None:
+            if day_end <= this_hour and usage_by_day.get(day_start) == [day_start]:
+                shares[day_start] = daily
+            else:
+                share = daily / round((day_end - day_start) / timedelta(hours=1))
+                last = min(day_end - timedelta(hours=1), this_hour)
+                for hour in _hours_between(day_start, last):
+                    shares[hour] = share
+        day_start = day_end
+    return shares
+
+
 async def async_import_cost_statistics(
     hass: HomeAssistant,
     meter_serial: str,
     meter_type: str,
     prices: Prices,
-    since: datetime,
-) -> None:
-    """Price the stored consumption from ``since`` and write it as a cost series.
+    since: datetime | None,
+    *,
+    include_standing_charge: bool = False,
+) -> bool:
+    """Price the stored consumption and write it as a cost series.
 
-    Call this after each consumption import, with the start of the range that
-    import rewrote.  The first call, or one after a gap, prices everything from
-    the first price period or the last costed hour instead.  Hours with no
-    known price cost nothing.
+    Call this after each consumption import with the start of the range that
+    import rewrote, or with ``since=None`` to reprice all history.  The first
+    call, or one after a gap, also reprices from the start.  Hours with no known
+    price cost nothing.
+
+    With ``include_standing_charge``, each day up to now also carries its
+    standing charge, whether or not there is usage data for it (see
+    :func:`_standing_charge_shares`).
+
+    Returns True once the cost series is up to date.
     """
     from homeassistant.helpers.recorder import get_instance
     from homeassistant.components.recorder.models import (
@@ -579,34 +647,46 @@ async def async_import_cost_statistics(
     consumption_id = statistic_id_for_meter(meter_serial, meter_type)
     cost_id = cost_statistic_id_for_meter(meter_serial, meter_type)
     if not prices.unit or consumption_id is None or cost_id is None:
-        return
+        return False
 
-    end = _hour_start(dt_util.utcnow()) + timedelta(hours=1)
+    this_hour = _hour_start(dt_util.utcnow())
+    end = this_hour + timedelta(hours=1)
     try:
         last_costed, _ = await _get_last_stat(hass, cost_id, end)
-        start = (
-            _hour_start(prices.unit[0].start)
-            if last_costed is None
-            else min(since, last_costed)
-        )
+        if since is None or last_costed is None:
+            reprice_all, start = True, prices.unit[0].start
+        else:
+            reprice_all, start = False, min(since, last_costed)
+        # Whole days, so a day's standing charge is never split across writes.
+        start = _local_day_start(start)
         consumption_base, consumption = await _fetch_baseline_and_existing(
             hass, consumption_id, start, end
         )
+        if reprice_all:
+            if not consumption:
+                return True
+            # Costs start where the usage history does.
+            start = _local_day_start(consumption[0][0])
         cost_base, existing = await _fetch_baseline_and_existing(
             hass, cost_id, start, end
         )
     except StatisticsLookupError as err:
         _LOGGER.warning("Skipping cost statistics for %s: %s", cost_id, err)
-        return
+        return False
 
     usage: dict[datetime, float] = {}
     previous = consumption_base
     for hour, cumulative in consumption:
         usage[hour], previous = cumulative - previous, cumulative
 
+    standing = (
+        _standing_charge_shares(prices.standing, set(usage), start, this_hour)
+        if include_standing_charge
+        else {}
+    )
     # Every stored cost hour in range is rewritten too: statistics are upserted
     # by hour, so leaving one out would keep an older cumulative sum there.
-    hours = set(usage) | {hour for hour, _ in existing}
+    hours = set(usage) | {hour for hour, _ in existing} | set(standing)
 
     series: list[tuple[datetime, float]] = []
     total = cost_base  # unrounded, so rounding never accumulates
@@ -614,9 +694,10 @@ async def async_import_cost_statistics(
         unit_price = price_at(prices.unit, hour)
         if unit_price is not None:
             total += usage.get(hour, 0.0) * unit_price
+        total += standing.get(hour, 0.0)
         series.append((hour, round(total, 4)))
     if not series or _series_unchanged(existing, series):
-        return
+        return True
 
     metadata = _build_statistic_metadata(meter_serial, meter_type, cost_id)
     fuel = "gas" if meter_type == METER_TYPE_GAS else "electricity"
@@ -632,3 +713,4 @@ async def async_import_cost_statistics(
     )
     if hass.state is CoreState.running:
         await get_instance(hass).async_block_till_done()
+    return True

@@ -47,6 +47,9 @@ class EonNextCoordinator(DataUpdateCoordinator):
         )
         self.api = api
         self.prices = PriceHistory(api)
+        self.include_standing_charge = False
+        # Meters whose whole cost history has been repriced since setup.
+        self._costs_repriced: set[str] = set()
         self._cost_warning_logged: set[str] = set()
         self._consumption_probed: set[str] = set()
 
@@ -379,9 +382,19 @@ class EonNextCoordinator(DataUpdateCoordinator):
         """Write the cost of the meter's stored consumption from ``since``."""
         try:
             prices = await self.prices.async_prices(meter)
-            await async_import_cost_statistics(
-                self.hass, meter.serial, meter.type, prices, since
+            # Reprice all history once per setup, so a changed option or a
+            # corrected price list applies to the past too.
+            repriced = meter.serial in self._costs_repriced
+            done = await async_import_cost_statistics(
+                self.hass,
+                meter.serial,
+                meter.type,
+                prices,
+                since if repriced else None,
+                include_standing_charge=self.include_standing_charge,
             )
+            if done:
+                self._costs_repriced.add(meter.serial)
         except EonNextAuthError:
             raise
         except Exception as err:  # pylint: disable=broad-except

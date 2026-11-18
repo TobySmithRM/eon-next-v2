@@ -103,6 +103,7 @@ When SmartFlex devices are available: smart‑charging schedule status, next cha
 - Recent consumption is kept up to date automatically: every refresh re‑imports a **rolling window** (the last three full days plus today) at half‑hourly resolution, so hours that E.ON delivers late or in pieces are corrected on the next refresh.
 - A slow, resumable **historical backfill** imports older long‑term statistics (see below).
 - Each meter also gets a **cost statistic** in GBP (`eon_next:<fuel>_<serial>_cost`) for the Energy Dashboard's "Use an entity tracking the total costs" option. Each hour is priced at the unit rate in force at the time, including VAT, from E.ON's published rates for your tariff and payment method. Single‑register time‑of‑use tariffs (e.g. NEXT Drive) are priced from their published peak/off‑peak history; two‑register Economy‑7 tariffs are not yet costed.
+- Turn on **Include standing charges in Energy Dashboard costs** (Settings → Devices & Services → Eon Next → Configure) to add standing charges to the cost statistic. Each hour, with or without usage data, carries its share of that day's charge, so daily and monthly costs match the bill's totals. Changing the option reprices the whole history.
 - A diagnostic status sensor reports backfill progress.
 
 ### Reliability

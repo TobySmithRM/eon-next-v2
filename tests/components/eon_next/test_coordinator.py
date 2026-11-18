@@ -542,21 +542,41 @@ class TestImportCosts:
         coord = EonNextCoordinator.__new__(EonNextCoordinator)
         coord.hass = SimpleNamespace()
         coord.prices = SimpleNamespace(async_prices=AsyncMock(return_value=prices))
+        coord.include_standing_charge = True
+        coord._costs_repriced = set()
         return coord
 
     @pytest.mark.asyncio
-    async def test_passes_the_meter_prices_to_the_import(self) -> None:
+    async def test_reprices_everything_once_then_only_what_changed(self) -> None:
         meter = SimpleNamespace(serial="m1", type="gas")
         coord = self._coordinator(self._PRICES)
         with patch(
             "custom_components.eon_next.coordinator.async_import_cost_statistics",
             new_callable=AsyncMock,
+            return_value=True,
         ) as import_costs:
             await coord.async_import_costs(meter, _REF_NOW)
+            await coord.async_import_costs(meter, _REF_NOW)
 
-        import_costs.assert_awaited_once_with(
-            coord.hass, "m1", "gas", self._PRICES, _REF_NOW
-        )
+        assert [call.args for call in import_costs.await_args_list] == [
+            (coord.hass, "m1", "gas", self._PRICES, None),
+            (coord.hass, "m1", "gas", self._PRICES, _REF_NOW),
+        ]
+        assert import_costs.await_args.kwargs == {"include_standing_charge": True}
+
+    @pytest.mark.asyncio
+    async def test_keeps_repricing_everything_until_it_succeeds(self) -> None:
+        meter = SimpleNamespace(serial="m1", type="gas")
+        coord = self._coordinator(Prices([], []))
+        with patch(
+            "custom_components.eon_next.coordinator.async_import_cost_statistics",
+            new_callable=AsyncMock,
+            return_value=False,
+        ) as import_costs:
+            await coord.async_import_costs(meter, _REF_NOW)
+            await coord.async_import_costs(meter, _REF_NOW)
+
+        assert [call.args[4] for call in import_costs.await_args_list] == [None, None]
 
     @pytest.mark.asyncio
     async def test_a_failure_does_not_escape(self) -> None:
