@@ -4,6 +4,34 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon-next-v2/) which it itself a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2). Much appreciation to those who worked on all of this before us.
 
+## [2.4.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.3...v2.4.0) (2026-11-19)
+
+This release brings **true historic-rate costing** to the Energy Dashboard, more accurate **gas** figures, and **per-fuel backfill** control — most of it built on contributions from [@miquez](https://github.com/miquez).
+
+- **Historic cost statistics (£) on the Energy Dashboard.** New cost statistics price your usage at the unit rate that was actually in force at the time — including time-of-use tariffs — instead of applying today's rate to past usage ([#22](https://github.com/TobySmithRM/eon-next-v2/issues/22), [#23](https://github.com/TobySmithRM/eon-next-v2/issues/23)). Standing charges can optionally be folded into the cost ([#24](https://github.com/TobySmithRM/eon-next-v2/issues/24)), and the dashboard peak/off-peak split now prices from the same historic rates, so the two always agree. For those on full-day tariffs, there is no need to re-import historic data - you have all you need already. For those on on/off-peak 'time of use' tariffs, the hourly energy data exists from when you first installed the integration, so no need for longer backfill there either.
+- **More accurate gas.** Gas from m³ meters is now converted to kWh. Smart gas meters that report in cubic metres were previously stored as kWh, making gas consumption, cost and the Energy Dashboard roughly 11× too low. New data is now correct automatically. However, gas statistics already imported in m³ are not re‑converted on their own — the backfill keeps a per‑meter cursor and won't re‑fetch finished days — so you may see a step in the gas Energy Dashboard (old m³ values next to new kWh ones). To fix the history, re‑run the gas backfill on its own: Settings → Devices & Services → Eon Next → Configure, turn Backfill gas meters off and save, then turn it back on (with "Clear and rebuild statistics" enabled). This rebuilds gas in kWh and leaves electricity untouched. See Historical backfill → Per‑fuel control. ([#19](https://github.com/TobySmithRM/eon-next-v2/issues/19)), and the calorific value used for that conversion is configurable ([#21](https://github.com/TobySmithRM/eon-next-v2/issues/21)).
+- **Per-fuel backfill control.** Dedicated include switches let you backfill — or re-run — one fuel's history independently of the other.
+- **Steadier startup.** Statistics import no longer blocks Home Assistant startup while waiting on the recorder ([#20](https://github.com/TobySmithRM/eon-next-v2/issues/20)).
+
+### New Contributors
+
+* [@miquez](https://github.com/miquez) made their first contributions 🎉 — [#19](https://github.com/TobySmithRM/eon-next-v2/issues/19), [#20](https://github.com/TobySmithRM/eon-next-v2/issues/20), [#21](https://github.com/TobySmithRM/eon-next-v2/issues/21), [#22](https://github.com/TobySmithRM/eon-next-v2/issues/22), [#23](https://github.com/TobySmithRM/eon-next-v2/issues/23), [#24](https://github.com/TobySmithRM/eon-next-v2/issues/24)
+
+### Features
+
+* **backfill:** per-fuel include switches with re-run-one-fuel support ([eb9b48e](https://github.com/TobySmithRM/eon-next-v2/commit/eb9b48eff0468b18c043218608b185fef5ad642c))
+* **dashboard:** price peak/off-peak split at true-historic rates ([a9759e2](https://github.com/TobySmithRM/eon-next-v2/commit/a9759e201a116f2ffcafd1d03d22f4317856bea9))
+* **gas:** make the calorific value configurable ([#21](https://github.com/TobySmithRM/eon-next-v2/issues/21)) ([64c9533](https://github.com/TobySmithRM/eon-next-v2/commit/64c9533252d8d0ec6860d550e188c9a03be444a9))
+* **statistics:** add cost statistics priced at historic unit rates ([#23](https://github.com/TobySmithRM/eon-next-v2/issues/23)) ([72e44bd](https://github.com/TobySmithRM/eon-next-v2/commit/72e44bdecc195eb0a564fda2bffe985c10c61052))
+* **statistics:** optionally include standing charges in costs ([#24](https://github.com/TobySmithRM/eon-next-v2/issues/24)) ([914337a](https://github.com/TobySmithRM/eon-next-v2/commit/914337a495f7d1e9e433b8fbf25f3d553fc879f8))
+* **tariffs:** look up the price in force at any past hour ([#22](https://github.com/TobySmithRM/eon-next-v2/issues/22)) ([79ff4af](https://github.com/TobySmithRM/eon-next-v2/commit/79ff4af1d85de1d8c926a6ea4a7a6fbf5932932e))
+
+
+### Bug Fixes
+
+* **gas:** convert m³ consumption to kWh ([#19](https://github.com/TobySmithRM/eon-next-v2/issues/19)) ([a8dd7d5](https://github.com/TobySmithRM/eon-next-v2/commit/a8dd7d53fdd316e8f70179223979763ad32b1490))
+* **statistics:** don't block startup on the recorder ([#20](https://github.com/TobySmithRM/eon-next-v2/issues/20)) ([ae3bb71](https://github.com/TobySmithRM/eon-next-v2/commit/ae3bb7114bcf10dadf39e0c219b3829248143d78))
+
 ## [2.3.3](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.2...v2.3.3) (2026-11-13)
 
 

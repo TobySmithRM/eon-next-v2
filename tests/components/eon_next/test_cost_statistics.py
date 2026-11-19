@@ -27,7 +27,12 @@ from custom_components.eon_next.statistics import (
 )
 from custom_components.eon_next.unit_prices import PricePeriod, Prices
 
-_NOW = datetime.now(tz=timezone.utc).replace(minute=0, second=0, microsecond=0)
+# Pin the hour to midday UTC so the now-relative test dates never coincide with
+# local midnight.  At local midnight a single daily-total usage row lands exactly
+# on the day start, which triggers the standing-charge "whole charge on one row"
+# collapse (statistics._standing_charge_shares) and makes the per-hour count tests
+# flaky for whichever hour maps to 00:00 local.
+_NOW = datetime.now(tz=timezone.utc).replace(hour=12, minute=0, second=0, microsecond=0)
 _DAY_A = _NOW - timedelta(days=3)
 _DAY_B = _NOW - timedelta(days=5)
 # The price goes up from 20p to 30p between day B and day A.
