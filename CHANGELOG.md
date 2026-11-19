@@ -4,6 +4,24 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon-next-v2/) which it itself a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2). Much appreciation to those who worked on all of this before us.
 
+## [2.4.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.3...v2.4.0) (2026-11-19)
+
+
+### Features
+
+* **backfill:** per-fuel include switches with re-run-one-fuel support ([eb9b48e](https://github.com/TobySmithRM/eon-next-v2/commit/eb9b48eff0468b18c043218608b185fef5ad642c))
+* **dashboard:** price peak/off-peak split at true-historic rates ([a9759e2](https://github.com/TobySmithRM/eon-next-v2/commit/a9759e201a116f2ffcafd1d03d22f4317856bea9))
+* **gas:** make the calorific value configurable ([#21](https://github.com/TobySmithRM/eon-next-v2/issues/21)) ([64c9533](https://github.com/TobySmithRM/eon-next-v2/commit/64c9533252d8d0ec6860d550e188c9a03be444a9))
+* **statistics:** add cost statistics priced at historic unit rates ([#23](https://github.com/TobySmithRM/eon-next-v2/issues/23)) ([72e44bd](https://github.com/TobySmithRM/eon-next-v2/commit/72e44bdecc195eb0a564fda2bffe985c10c61052))
+* **statistics:** optionally include standing charges in costs ([#24](https://github.com/TobySmithRM/eon-next-v2/issues/24)) ([914337a](https://github.com/TobySmithRM/eon-next-v2/commit/914337a495f7d1e9e433b8fbf25f3d553fc879f8))
+* **tariffs:** look up the price in force at any past hour ([#22](https://github.com/TobySmithRM/eon-next-v2/issues/22)) ([79ff4af](https://github.com/TobySmithRM/eon-next-v2/commit/79ff4af1d85de1d8c926a6ea4a7a6fbf5932932e))
+
+
+### Bug Fixes
+
+* **gas:** convert m³ consumption to kWh ([#19](https://github.com/TobySmithRM/eon-next-v2/issues/19)) ([a8dd7d5](https://github.com/TobySmithRM/eon-next-v2/commit/a8dd7d53fdd316e8f70179223979763ad32b1490))
+* **statistics:** don't block startup on the recorder ([#20](https://github.com/TobySmithRM/eon-next-v2/issues/20)) ([ae3bb71](https://github.com/TobySmithRM/eon-next-v2/commit/ae3bb7114bcf10dadf39e0c219b3829248143d78))
+
 ## [2.3.3](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.2...v2.3.3) (2026-11-13)
 
 
