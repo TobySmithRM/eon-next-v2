@@ -6,6 +6,16 @@ This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon
 
 ## [2.4.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.3...v2.4.0) (2026-11-19)
 
+This release brings **true historic-rate costing** to the Energy Dashboard, more accurate **gas** figures, and **per-fuel backfill** control — most of it built on contributions from [@miquez](https://github.com/miquez).
+
+- **Historic cost statistics (£) on the Energy Dashboard.** New cost statistics price your usage at the unit rate that was actually in force at the time — including time-of-use tariffs — instead of applying today's rate to past usage ([#22](https://github.com/TobySmithRM/eon-next-v2/issues/22), [#23](https://github.com/TobySmithRM/eon-next-v2/issues/23)). Standing charges can optionally be folded into the cost ([#24](https://github.com/TobySmithRM/eon-next-v2/issues/24)), and the dashboard peak/off-peak split now prices from the same historic rates, so the two always agree. For those on full-day tariffs, there is no need to re-import historic data - you have all you need already. For those on on/off-peak 'time of use' tariffs, the hourly energy data exists from when you first installed the integration, so no need for longer backfill there either.
+- **More accurate gas.** Gas from m³ meters is now converted to kWh. Smart gas meters that report in cubic metres were previously stored as kWh, making gas consumption, cost and the Energy Dashboard roughly 11× too low. New data is now correct automatically. However, gas statistics already imported in m³ are not re‑converted on their own — the backfill keeps a per‑meter cursor and won't re‑fetch finished days — so you may see a step in the gas Energy Dashboard (old m³ values next to new kWh ones). To fix the history, re‑run the gas backfill on its own: Settings → Devices & Services → Eon Next → Configure, turn Backfill gas meters off and save, then turn it back on (with "Clear and rebuild statistics" enabled). This rebuilds gas in kWh and leaves electricity untouched. See Historical backfill → Per‑fuel control. ([#19](https://github.com/TobySmithRM/eon-next-v2/issues/19)), and the calorific value used for that conversion is configurable ([#21](https://github.com/TobySmithRM/eon-next-v2/issues/21)).
+- **Per-fuel backfill control.** Dedicated include switches let you backfill — or re-run — one fuel's history independently of the other.
+- **Steadier startup.** Statistics import no longer blocks Home Assistant startup while waiting on the recorder ([#20](https://github.com/TobySmithRM/eon-next-v2/issues/20)).
+
+### New Contributors
+
+* [@miquez](https://github.com/miquez) made their first contributions 🎉 — [#19](https://github.com/TobySmithRM/eon-next-v2/issues/19), [#20](https://github.com/TobySmithRM/eon-next-v2/issues/20), [#21](https://github.com/TobySmithRM/eon-next-v2/issues/21), [#22](https://github.com/TobySmithRM/eon-next-v2/issues/22), [#23](https://github.com/TobySmithRM/eon-next-v2/issues/23), [#24](https://github.com/TobySmithRM/eon-next-v2/issues/24)
 
 ### Features
 
