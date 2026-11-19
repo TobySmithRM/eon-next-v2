@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-This project is a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2), maintained by [@monsagri](https://github.com/monsagri).
+This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon-next-v2/) which it itself a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2). Much appreciation to those who worked on all of this before us.
 
 ## [2.3.3](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.2...v2.3.3) (2026-11-13)
 
