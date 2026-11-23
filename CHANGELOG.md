@@ -4,6 +4,13 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon-next-v2/) which it itself a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2). Much appreciation to those who worked on all of this before us.
 
+## [2.5.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.4.0...v2.5.0) (2026-11-23)
+
+
+### Features
+
+* **backfill:** fetch half-hourly history for time-of-use meters ([#32](https://github.com/TobySmithRM/eon-next-v2/issues/32)) ([5f4c9ca](https://github.com/TobySmithRM/eon-next-v2/commit/5f4c9ca71b269df69dc00fd94fe76ce399b9d6ca))
+
 ## [2.4.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.3...v2.4.0) (2026-11-19)
 
 This release brings **true historic-rate costing** to the Energy Dashboard, more accurate **gas** figures, and **per-fuel backfill** control — most of it built on contributions from [@miquez](https://github.com/miquez).
