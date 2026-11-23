@@ -475,6 +475,7 @@ async def async_import_historical_statistics(
     consumption_entries: list[dict[str, Any]],
     *,
     daily_granularity: bool = False,
+    supersede_daily_buckets: bool = False,
 ) -> None:
     """Import *historical* consumption without suspending live imports.
 
@@ -487,6 +488,11 @@ async def async_import_historical_statistics(
     Set ``daily_granularity`` when ``consumption_entries`` are daily buckets so
     a day the coordinator already imported at half-hourly resolution is not
     double-counted (see :func:`_merge_and_recompute_series`).
+
+    Set ``supersede_daily_buckets`` when importing finer half-hourly data over a
+    day that may still hold a lone daily bucket (left by a flat-rate-era backfill
+    or an older version): the daily total is zeroed so the day's hours replace it
+    rather than adding on top.  Ignored when ``daily_granularity`` is set.
     """
     from homeassistant.helpers.recorder import get_instance
     from homeassistant.components.recorder.models import (
@@ -524,7 +530,11 @@ async def async_import_historical_statistics(
         return
 
     series = _merge_and_recompute_series(
-        baseline_sum, existing, hourly, daily_granularity=daily_granularity
+        baseline_sum,
+        existing,
+        hourly,
+        daily_granularity=daily_granularity,
+        supersede_daily_buckets=supersede_daily_buckets,
     )
     if not series:
         return
