@@ -55,3 +55,8 @@ LIVE_WINDOW_DAYS = 3
 # Whole days in the window plus today, at 48 half-hours a day, plus headroom for
 # a 25-hour DST day.
 LIVE_PAGE_SIZE = (LIVE_WINDOW_DAYS + 1) * 48 + 48
+
+# Time-of-use meters are backfilled at half-hourly resolution so historic days
+# can be split into peak/off-peak.  A half-hourly chunk returns ~48 slots a day,
+# so cap its span to keep page_size under E.ON's limit (30 * 48 + 48 = 1488).
+BACKFILL_HH_MAX_CHUNK_DAYS = 30

@@ -14,6 +14,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    BACKFILL_HH_MAX_CHUNK_DAYS,
     CONF_BACKFILL_CHUNK_DAYS,
     CONF_BACKFILL_DELAY_SECONDS,
     CONF_BACKFILL_ENABLED,
@@ -281,6 +282,71 @@ class EonNextBackfillManager:
             dt_util.as_utc(dt_util.start_of_local_day(day))
             .strftime("%Y-%m-%dT%H:%M:%SZ")
         )
+
+    def _meter_is_tou(self, meter: Any) -> bool:
+        """Whether this meter is on a time-of-use tariff.
+
+        Read from the coordinator's latest snapshot (keyed by meter serial).
+        Time-of-use meters are backfilled at half-hourly resolution so historic
+        days can be split into peak/off-peak; flat-rate meters stay on cheaper
+        daily buckets.  Defaults to False when the snapshot is missing, so a
+        meter never upgrades to the heavier fetch on incomplete data.
+        """
+        data = getattr(self.coordinator, "data", None) or {}
+        meter_data = data.get(meter.serial) or {}
+        return bool(meter_data.get("tariff_is_tou", False))
+
+    @staticmethod
+    def _entries_are_half_hourly(entries: list[dict[str, Any]]) -> bool:
+        """False when entries carry intervals longer than one half-hour.
+
+        E.ON only holds half-hourly data back to the smart meter's install, so a
+        half-hourly request for older history returns daily (or empty) buckets;
+        this lets the backfill fall back to a daily import for those chunks.
+        Entries without parseable bounds are given the benefit of the doubt.
+        """
+        for entry in entries[:3]:
+            start = dt_util.parse_datetime(str(entry.get("interval_start") or ""))
+            end = dt_util.parse_datetime(str(entry.get("interval_end") or ""))
+            if start and end and (end - start) > timedelta(minutes=31):
+                return False
+        return True
+
+    async def _fetch_chunk(
+        self,
+        meter: Any,
+        start_date: date,
+        end_date: date,
+        *,
+        half_hourly: bool,
+    ) -> list[dict[str, Any]]:
+        """Fetch one consumption chunk, half-hourly or daily.
+
+        Half-hourly asks for the window with ``group_by`` omitted (E.ON rejects
+        ``group_by=half_hour``); daily uses ``group_by=day``.  Returns the raw
+        results list (possibly empty).  Raises :class:`EonNextApiError` on
+        transport failure so the caller can leave the cursor for a retry.
+        """
+        period_from = self._utc_boundary_iso(start_date)
+        period_to = self._utc_boundary_iso(end_date + timedelta(days=1))
+        day_count = (end_date - start_date).days + 1
+        if half_hourly:
+            # 48 slots a day, plus headroom for a 25-hour DST day.
+            page_size = day_count * 48 + 48
+            group_by = None
+        else:
+            page_size = day_count
+            group_by = "day"
+        result = await self.api.async_get_consumption(
+            meter.type,
+            meter.supply_point_id,
+            meter.serial,
+            group_by=group_by,
+            page_size=page_size,
+            period_from=period_from,
+            period_to=period_to,
+        )
+        return (result or {}).get("results") or []
 
     async def _wait_or_stop(self, seconds: int) -> bool:
         try:
@@ -590,20 +656,31 @@ class EonNextBackfillManager:
                     await self._save_state()
                     continue
 
-                end_date = min(start_date + timedelta(days=chunk_days - 1), yesterday)
-                period_from = self._utc_boundary_iso(start_date)
-                period_to = self._utc_boundary_iso(end_date + timedelta(days=1))
-                day_count = (end_date - start_date).days + 1
+                # Time-of-use meters are fetched half-hourly so historic days
+                # can be split into peak/off-peak; the chunk span is capped to
+                # keep the half-hourly page_size under E.ON's limit.  Flat-rate
+                # meters stay on cheaper daily buckets.
+                is_tou = self._meter_is_tou(meter)
+                span = (
+                    min(chunk_days, BACKFILL_HH_MAX_CHUNK_DAYS) if is_tou else chunk_days
+                )
+                end_date = min(start_date + timedelta(days=span - 1), yesterday)
                 try:
-                    result = await self.api.async_get_consumption(
-                        meter.type,
-                        meter.supply_point_id,
-                        meter.serial,
-                        group_by="day",
-                        page_size=day_count,
-                        period_from=period_from,
-                        period_to=period_to,
+                    consumption = await self._fetch_chunk(
+                        meter, start_date, end_date, half_hourly=is_tou
                     )
+                    half_hourly = (
+                        is_tou
+                        and bool(consumption)
+                        and self._entries_are_half_hourly(consumption)
+                    )
+                    if is_tou and not half_hourly:
+                        # E.ON holds no half-hourly data this far back (or none
+                        # at all): fall back to a daily import for this chunk so
+                        # TOU meters still backfill fully, just without a split.
+                        consumption = await self._fetch_chunk(
+                            meter, start_date, end_date, half_hourly=False
+                        )
                 except EonNextApiError as err:
                     # Transport/server error: leave the cursor untouched so this
                     # chunk is retried next cycle instead of leaving a permanent
@@ -618,17 +695,19 @@ class EonNextBackfillManager:
                     requests_remaining -= 1
                     continue
 
-                consumption = result.get("results") if result else None
                 if consumption:
-                    # Backfill fetches daily buckets; flag it so a day the
-                    # coordinator already imported at half-hourly resolution is
-                    # not double-counted when the cursor reaches yesterday.
+                    # Half-hourly buckets are imported as hourly rows (splittable
+                    # by time-of-use); supersede any lone daily bucket a prior
+                    # flat-rate backfill left on the same day.  Daily buckets are
+                    # flagged so a day the coordinator already imported at
+                    # half-hourly resolution is not double-counted.
                     await async_import_historical_statistics(
                         self.hass,
                         meter.serial,
                         meter.type,
                         consumption,
-                        daily_granularity=True,
+                        daily_granularity=not half_hourly,
+                        supersede_daily_buckets=half_hourly,
                     )
                     await self.coordinator.async_import_costs(
                         meter, dt_util.as_utc(dt_util.start_of_local_day(start_date))

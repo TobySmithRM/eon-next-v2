@@ -309,6 +309,121 @@ async def test_run_backfill_cycle_leaves_cursor_on_api_error(monkeypatch) -> Non
     assert manager._state["meters"]["m1"]["done"] is False
 
 
+def _tou_manager(meter: SimpleNamespace, *, is_tou: bool) -> EonNextBackfillManager:
+    """A manager whose coordinator reports ``meter`` as TOU or flat-rate."""
+    manager = _manager(
+        {
+            CONF_BACKFILL_ENABLED: True,
+            CONF_BACKFILL_CHUNK_DAYS: 1,
+            CONF_BACKFILL_REQUESTS_PER_RUN: 1,
+            CONF_BACKFILL_DELAY_SECONDS: 0,
+        },
+        [meter],
+    )
+    manager._state = {
+        "initialized": True,
+        "rebuild_done": True,
+        "lookback_days": 3650,
+        "meters": {meter.serial: {"next_start": _REF_PREV_ISO, "done": False}},
+    }
+    manager._save_state = AsyncMock()  # type: ignore[method-assign]
+    manager.coordinator.data = {meter.serial: {"tariff_is_tou": is_tou}}
+    return manager
+
+
+def _half_hourly_entries() -> list[dict]:
+    """Four 30-minute slots on the backfilled day (yesterday)."""
+    day_start = (_REF_DT - timedelta(days=1)).replace(hour=0)
+    return [
+        {
+            "interval_start": (day_start + timedelta(minutes=30 * i)).isoformat(),
+            "interval_end": (day_start + timedelta(minutes=30 * (i + 1))).isoformat(),
+            "consumption": 0.25,
+        }
+        for i in range(4)
+    ]
+
+
+@pytest.mark.asyncio
+async def test_tou_meter_backfilled_half_hourly(monkeypatch) -> None:
+    """A time-of-use meter is fetched half-hourly and imported splittably."""
+    meter = _meter("m1", "electricity")
+    manager = _tou_manager(meter, is_tou=True)
+    manager.api.async_get_consumption = AsyncMock(  # type: ignore[attr-defined]
+        return_value={"results": _half_hourly_entries()}
+    )
+    import_mock = AsyncMock()
+    monkeypatch.setattr(
+        backfill_module, "async_import_historical_statistics", import_mock
+    )
+    monkeypatch.setattr(
+        backfill_module.dt_util, "now", lambda: _REF_DT.replace(hour=12)
+    )
+
+    await manager._run_backfill_cycle()
+
+    # Half-hourly request: group_by omitted (E.ON rejects group_by=half_hour).
+    kwargs = manager.api.async_get_consumption.await_args.kwargs
+    assert kwargs["group_by"] is None
+    # Imported as hourly rows that supersede any prior daily bucket.
+    import_mock.assert_awaited_once()
+    assert import_mock.await_args.kwargs["daily_granularity"] is False
+    assert import_mock.await_args.kwargs["supersede_daily_buckets"] is True
+
+
+@pytest.mark.asyncio
+async def test_flat_rate_meter_backfilled_daily(monkeypatch) -> None:
+    """A flat-rate meter keeps the cheaper daily-bucket backfill."""
+    meter = _meter("m1", "electricity")
+    manager = _tou_manager(meter, is_tou=False)
+    manager.api.async_get_consumption = AsyncMock(  # type: ignore[attr-defined]
+        return_value={"results": [{"interval_start": _REF_PREV_ISO, "consumption": 2.0}]}
+    )
+    import_mock = AsyncMock()
+    monkeypatch.setattr(
+        backfill_module, "async_import_historical_statistics", import_mock
+    )
+    monkeypatch.setattr(
+        backfill_module.dt_util, "now", lambda: _REF_DT.replace(hour=12)
+    )
+
+    await manager._run_backfill_cycle()
+
+    assert manager.api.async_get_consumption.await_args.kwargs["group_by"] == "day"
+    import_mock.assert_awaited_once()
+    assert import_mock.await_args.kwargs["daily_granularity"] is True
+    assert import_mock.await_args.kwargs["supersede_daily_buckets"] is False
+
+
+@pytest.mark.asyncio
+async def test_tou_meter_falls_back_to_daily_when_no_half_hourly(monkeypatch) -> None:
+    """When E.ON has no half-hourly data for a chunk, TOU falls back to daily."""
+    meter = _meter("m1", "electricity")
+    manager = _tou_manager(meter, is_tou=True)
+    # First (half-hourly) request is empty; the daily fallback returns a bucket.
+    manager.api.async_get_consumption = AsyncMock(  # type: ignore[attr-defined]
+        side_effect=[
+            {"results": []},
+            {"results": [{"interval_start": _REF_PREV_ISO, "consumption": 2.0}]},
+        ]
+    )
+    import_mock = AsyncMock()
+    monkeypatch.setattr(
+        backfill_module, "async_import_historical_statistics", import_mock
+    )
+    monkeypatch.setattr(
+        backfill_module.dt_util, "now", lambda: _REF_DT.replace(hour=12)
+    )
+
+    await manager._run_backfill_cycle()
+
+    assert manager.api.async_get_consumption.await_count == 2
+    # Fell back to a daily import.
+    import_mock.assert_awaited_once()
+    assert import_mock.await_args.kwargs["daily_granularity"] is True
+    assert import_mock.await_args.kwargs["supersede_daily_buckets"] is False
+
+
 # --- meters_progress attribute tests ---
 
 
