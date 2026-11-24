@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon-next-v2/) which it itself a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2). Much appreciation to those who worked on all of this before us.
 
+## [2.5.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.4.0...v2.5.0) (2026-11-23)
+
+
+### Features
+
+* **Peak/off-peak history for time-of-use tariffs.** The historical backfill now imports **half-hourly** data for time-of-use meters (e.g. NEXT Drive), so *past* days — not just the last few — split into **off-peak vs peak** usage and cost on the dashboard charts. Flat-rate meters are unaffected and keep the lighter daily backfill. Where E.ON has no half-hourly data for an older period, those days fall back to a daily total automatically. ([#32](https://github.com/TobySmithRM/eon-next-v2/issues/32), [5f4c9ca](https://github.com/TobySmithRM/eon-next-v2/commit/5f4c9ca71b269df69dc00fd94fe76ce399b9d6ca))
+
+
+### Upgrade notes
+
+* Only **electricity** benefits from this — gas and any flat-rate meters aren't time-of-use, so there's nothing to rebuild for them. To re-split your existing **electricity** history *without* re-doing gas, re-run just that one fuel: **Settings → Devices & Services → Eon Next → Configure**, make sure **Clear and rebuild statistics** is on, then turn **Backfill electricity meters** *off* and save, and turn it back *on* and save. Re-including a fuel resets only its own meters, so electricity re-clears and refetches at half-hourly resolution while **gas is left exactly as it is**. This is heavier than a daily backfill, so it fills in gradually in the background. New installs get the split automatically as history imports.
+
 ## [2.4.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.3.3...v2.4.0) (2026-11-19)
 
 This release brings **true historic-rate costing** to the Energy Dashboard, more accurate **gas** figures, and **per-fuel backfill** control — most of it built on contributions from [@miquez](https://github.com/miquez).
