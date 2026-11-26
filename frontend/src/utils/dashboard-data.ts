@@ -265,6 +265,28 @@ export function readDayRates(
   return out
 }
 
+/**
+ * Derive a single peak and off-peak unit rate (£/kWh) from today's rate windows.
+ * Off-peak is the cheapest off-peak window, peak the dearest peak window, so a
+ * two-tier tariff resolves to its two rates and a multi-tier one to its extremes.
+ */
+export function splitDayRates(rates: DayRate[]): {
+  peak: number | null
+  offPeak: number | null
+} {
+  let peak: number | null = null
+  let offPeak: number | null = null
+  for (const w of rates) {
+    if (!Number.isFinite(w.rate)) continue
+    if (w.isOffPeak) {
+      offPeak = offPeak === null ? w.rate : Math.min(offPeak, w.rate)
+    } else {
+      peak = peak === null ? w.rate : Math.max(peak, w.rate)
+    }
+  }
+  return { peak, offPeak }
+}
+
 /** Whether a meter is on a time-of-use tariff (has an off-peak binary sensor). */
 export function isTimeOfUse(
   hass: HomeAssistant | undefined,
