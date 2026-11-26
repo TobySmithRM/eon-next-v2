@@ -20,7 +20,9 @@ import {
   greeting,
   isTimeOfUse,
   projectMonth,
+  readDayRates,
   round2,
+  splitDayRates,
   toStackedBars
 } from '../../utils/dashboard-data'
 import type { DashboardPage } from './pages'
@@ -295,11 +297,41 @@ class EonOverviewPage extends LitElement {
               ></eon-stacked-bar-chart>`
             : html`<div class="fuel-chart-empty"></div>`
         }
-        <div class="fuel-foot muted">
-          <span>${formatPence(meter.unit_rate)} /kWh</span>
-          <span>${formatPence(meter.standing_charge, 0)} /day standing</span>
-        </div>
+        <div class="legend fuel-foot">${this._fuelFootItems(kind, meter)}</div>
       </button>
+    `
+  }
+
+  /** A legend swatch + label, matching the chart legend on the meter page. */
+  private _legendItem(color: string, text: string) {
+    return html`<span class="legend-item">
+      <span class="legend-swatch" style="background:${color}"></span>${text}
+    </span>`
+  }
+
+  /**
+   * Fuel-card footer rates as legend items (blob + muted text). On a time-of-use
+   * electricity meter the unit rate splits into off-peak and peak; otherwise a
+   * single unit rate is shown. Standing charge always closes the row.
+   */
+  private _fuelFootItems(kind: FuelKind, meter: MeterSummary) {
+    const fuel = FUEL[kind]
+    const standing = this._legendItem(
+      fuel.standColor,
+      `${formatPence(meter.standing_charge, 0)} /day standing`
+    )
+    const { peak, offPeak } = splitDayRates(readDayRates(this.hass, meter.serial ?? null))
+    const showSplit =
+      isTimeOfUse(this.hass, meter.serial ?? null) && peak != null && offPeak != null
+    if (showSplit) {
+      return html`
+        ${this._legendItem('var(--eon-green-light)', `${formatPence(offPeak)} off-peak`)}
+        ${this._legendItem(fuel.usageColor, `${formatPence(peak)} peak`)} ${standing}
+      `
+    }
+    return html`
+      ${this._legendItem(fuel.usageColor, `${formatPence(meter.unit_rate)} /kWh`)}
+      ${standing}
     `
   }
 
@@ -317,6 +349,13 @@ class EonOverviewPage extends LitElement {
     const tou =
       isTimeOfUse(this.hass, elec?.serial ?? null) ||
       isTimeOfUse(this.hass, gas?.serial ?? null)
+    // Split the electricity rate into peak/off-peak when it's a time-of-use
+    // meter and today's windows resolve two distinct rates.
+    const elecRates = splitDayRates(readDayRates(this.hass, elec?.serial ?? null))
+    const elecSplit =
+      isTimeOfUse(this.hass, elec?.serial ?? null) &&
+      elecRates.peak != null &&
+      elecRates.offPeak != null
 
     return html`
       <button
@@ -331,14 +370,19 @@ class EonOverviewPage extends LitElement {
           <span class="pill pill--dark">${tou ? 'Time-of-use' : 'Flat rate'}</span>
         </div>
         <div class="tariff-stats">
-          <div>
-            <div class="tariff-stat-value">${formatRatePounds(elec?.unit_rate)}</div>
-            <div class="tariff-stat-label">Electricity /kWh</div>
-          </div>
-          <div>
-            <div class="tariff-stat-value">${formatRatePounds(gas?.unit_rate)}</div>
-            <div class="tariff-stat-label">Gas /kWh</div>
-          </div>
+          ${
+            elecSplit
+              ? html`
+                  ${this._rateStat(formatRatePounds(elecRates.peak), 'var(--eon-elec)', 'Elec peak /kWh')}
+                  ${this._rateStat(formatRatePounds(elecRates.offPeak), 'var(--eon-green-light)', 'Elec off-peak /kWh')}
+                `
+              : this._rateStat(
+                  formatRatePounds(elec?.unit_rate),
+                  'var(--eon-elec)',
+                  'Electricity /kWh'
+                )
+          }
+          ${this._rateStat(formatRatePounds(gas?.unit_rate), 'var(--eon-gas)', 'Gas /kWh')}
           <div class="tariff-note">
             <div class="accent">
               ${tou ? 'Off-peak window available' : 'No cheaper window today'}
@@ -349,6 +393,18 @@ class EonOverviewPage extends LitElement {
           </div>
         </div>
       </button>
+    `
+  }
+
+  /** A tariff-card stat: big rate value over a blob + label. */
+  private _rateStat(value: string, color: string, label: string) {
+    return html`
+      <div>
+        <div class="tariff-stat-value">${value}</div>
+        <div class="tariff-stat-label">
+          <span class="legend-swatch" style="background:${color}"></span>${label}
+        </div>
+      </div>
     `
   }
 
