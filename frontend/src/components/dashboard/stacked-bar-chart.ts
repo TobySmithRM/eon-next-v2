@@ -70,23 +70,37 @@ class EonStackedBarChart extends LitElement {
       bar.splitAvailable === true &&
       bar.peakPct !== undefined &&
       bar.offpeakPct !== undefined
+    // Monthly bars that mix split and unsplit days carry a flat-rate "plain"
+    // remainder; it's drawn in a faded usage colour so it reads as usage we
+    // couldn't break down. Daily and fully-split bars have none.
+    const plain = split && bar.plainPct !== undefined && bar.plainPct > 0
+    const plainColor = `color-mix(in srgb, ${this.usageColor} 42%, var(--eon-card))`
     const title = split
       ? `${formatPounds(bar.usageCost + bar.standCost)} · peak ${formatPounds(
           bar.peakCost ?? 0
-        )} + off-peak ${formatPounds(bar.offpeakCost ?? 0)} + standing ${formatPounds(
-          bar.standCost
-        )}`
+        )} + off-peak ${formatPounds(bar.offpeakCost ?? 0)}${
+          plain ? ` + usage ${formatPounds(bar.plainCost ?? 0)}` : ''
+        } + standing ${formatPounds(bar.standCost)}`
       : `${formatPounds(bar.usageCost + bar.standCost)} · usage ${formatPounds(
           bar.usageCost
         )} + standing ${formatPounds(bar.standCost)}`
-    // Stack order top→bottom: peak usage, off-peak usage, then the fixed
-    // standing-charge floor. Non-split bars draw a single usage block.
+    // Stack order top→bottom: peak usage, the unsplit remainder (monthly only),
+    // off-peak usage, then the fixed standing-charge floor. Non-split bars draw
+    // a single usage block.
     const usage = split
       ? html`
           <div
             class="seg seg--usage"
             style="height:${bar.peakPct}%;background:${this.usageColor}"
           ></div>
+          ${
+            plain
+              ? html`<div
+                  class="seg seg--plain"
+                  style="height:${bar.plainPct}%;background:${plainColor}"
+                ></div>`
+              : nothing
+          }
           <div
             class="seg seg--offpeak"
             style="height:${bar.offpeakPct}%;background:${this.offpeakColor}"
