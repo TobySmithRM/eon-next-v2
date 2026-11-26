@@ -76,6 +76,14 @@ export interface StackedBar {
   peakPct?: number
   offpeakCost?: number
   peakCost?: number
+  /**
+   * Monthly bars only: usage on days with no time-of-use split (older days with
+   * a daily total only), priced at the flat rate. Drawn as a third, plainly
+   * coloured segment between peak and off-peak so a month that mixes split and
+   * unsplit days still totals correctly. Zero/absent when every day split.
+   */
+  plainPct?: number
+  plainCost?: number
 }
 
 /** Rate window read from a `*_unit_rate` sensor's attributes. */
@@ -431,6 +439,12 @@ export function summariseSplit(entries: ConsumptionHistoryEntry[]): SplitSummary
  * Aggregate daily entries into monthly buckets for the 1-year view, so the
  * standing charge scales with the days in each month and the stack stays
  * proportional.
+ *
+ * Carries the time-of-use split forward: days that have a peak/off-peak
+ * breakdown contribute their actual off-peak and peak cost, and days without
+ * one (older daily-only days) contribute a flat-rate "plain" remainder. A month
+ * that has at least one split day draws three usage sub-segments (off-peak,
+ * peak, plain); a month with none stays a single usage block.
  */
 export function toMonthlyStackedBars(
   entries: ConsumptionHistoryEntry[],
@@ -441,35 +455,60 @@ export function toMonthlyStackedBars(
   const r = rate ?? 0
   const stand = standingPerDay ?? 0
 
-  const buckets = new Map<
-    string,
-    { kwh: number; days: number; realDays: number; date: Date }
-  >()
+  interface Bucket {
+    plainKwh: number // kWh on days with no split, priced at the flat rate
+    offpeakCost: number
+    peakCost: number
+    splitDays: number
+    days: number
+    realDays: number
+    date: Date
+  }
+  const buckets = new Map<string, Bucket>()
   for (const e of entries) {
     const d = new Date(`${e.date}T00:00:00`)
     if (isNaN(d.getTime())) continue
     const key = `${d.getFullYear()}-${d.getMonth()}`
-    const bucket = buckets.get(key) ?? {
-      kwh: 0,
-      days: 0,
-      realDays: 0,
-      date: new Date(d.getFullYear(), d.getMonth(), 1)
-    }
-    bucket.kwh += Math.max(0, e.consumption)
+    const bucket =
+      buckets.get(key) ??
+      ({
+        plainKwh: 0,
+        offpeakCost: 0,
+        peakCost: 0,
+        splitDays: 0,
+        days: 0,
+        realDays: 0,
+        date: new Date(d.getFullYear(), d.getMonth(), 1)
+      } satisfies Bucket)
     bucket.days += 1
     if (e.missing !== true) bucket.realDays += 1
+    if (e.split_available === true && e.peak_cost != null && e.offpeak_cost != null) {
+      bucket.offpeakCost += Math.max(0, e.offpeak_cost)
+      bucket.peakCost += Math.max(0, e.peak_cost)
+      bucket.splitDays += 1
+    } else {
+      bucket.plainKwh += Math.max(0, e.consumption)
+    }
     buckets.set(key, bucket)
   }
 
   const ordered = [...buckets.values()].sort(
     (a, b) => a.date.getTime() - b.date.getTime()
   )
-  const computed = ordered.map((b) => ({
-    date: b.date,
-    usageCost: b.kwh * r,
-    standCost: b.days * stand,
-    missing: b.realDays === 0
-  }))
+  const computed = ordered.map((b) => {
+    const plainCost = b.plainKwh * r
+    const split = b.splitDays > 0
+    return {
+      date: b.date,
+      offpeakCost: b.offpeakCost,
+      peakCost: b.peakCost,
+      plainCost,
+      usageCost: b.offpeakCost + b.peakCost + plainCost,
+      standCost: b.days * stand,
+      split,
+      missing: b.realDays === 0
+    }
+  })
   const max = Math.max(0.0001, ...computed.map((c) => c.usageCost + c.standCost))
 
   return computed.map((c) => ({
@@ -477,6 +516,13 @@ export function toMonthlyStackedBars(
     standPct: (c.standCost / max) * 100,
     usageCost: c.usageCost,
     standCost: c.standCost,
+    splitAvailable: c.split,
+    offpeakPct: c.split ? (c.offpeakCost / max) * 100 : undefined,
+    peakPct: c.split ? (c.peakCost / max) * 100 : undefined,
+    plainPct: c.split ? (c.plainCost / max) * 100 : undefined,
+    offpeakCost: c.split ? c.offpeakCost : undefined,
+    peakCost: c.split ? c.peakCost : undefined,
+    plainCost: c.split ? c.plainCost : undefined,
     missing: c.missing,
     label: c.date.toLocaleDateString(locale, { month: 'narrow' })
   }))
