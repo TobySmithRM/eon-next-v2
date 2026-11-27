@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon-next-v2/) which it itself a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2). Much appreciation to those who worked on all of this before us.
 
+## [2.6.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.5.0...v2.6.0) (2026-11-27)
+
+This release rounds out the **peak / off-peak** picture for time-of-use tariffs (like NEXT Drive): your rates and windows are clearer on the overview, and the split now appears across *every* chart range.
+
+### Features
+
+* **Peak & off-peak on the overview.** On a time-of-use tariff, the electricity fuel card now shows your **peak** and **off-peak** unit rates side by side (each with a colour key), and the **Your tariff** card shows *when* those windows fall — e.g. off-peak 00:00–06:00, peak 06:00–24:00 — rather than repeating the rates. Gas and flat-rate meters are unchanged. ([#37](https://github.com/TobySmithRM/eon-next-v2/issues/37), [#40](https://github.com/TobySmithRM/eon-next-v2/issues/40), closes [#35](https://github.com/TobySmithRM/eon-next-v2/issues/35))
+* **The 1-year chart now splits peak vs off-peak too.** Until now only the 7-day, 30-day and 90-day views split each day's usage into off-peak and peak; the 1-year view showed a single block. The monthly bars now split as well. A month that mixes newer split days with older daily-only days shows a third, faded "unsplit" band, so the totals always add up. ([#39](https://github.com/TobySmithRM/eon-next-v2/issues/39), closes [#36](https://github.com/TobySmithRM/eon-next-v2/issues/36))
+* **Consistent chart colours.** The fixed standing-charge segment now uses the same colour on electricity and gas, so the floor you pay before using anything reads the same everywhere. ([#40](https://github.com/TobySmithRM/eon-next-v2/issues/40))
+
+These are display-only changes — nothing to do after updating, and flat-rate tariffs are unaffected.
+
 ## [2.5.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.4.0...v2.5.0) (2026-11-23)
 
 
