@@ -15,7 +15,6 @@ import {
   findMeter,
   formatPence,
   formatPounds,
-  formatRatePounds,
   formatShortDate,
   greeting,
   isTimeOfUse,
@@ -23,6 +22,7 @@ import {
   readDayRates,
   round2,
   splitDayRates,
+  summariseRateWindows,
   toStackedBars
 } from '../../utils/dashboard-data'
 import type { DashboardPage } from './pages'
@@ -346,16 +346,12 @@ class EonOverviewPage extends LitElement {
 
   private _renderTariffCard(elec: MeterSummary | null, gas: MeterSummary | null) {
     const tariffName = elec?.tariff_name ?? gas?.tariff_name ?? 'Tariff unavailable'
-    const tou =
-      isTimeOfUse(this.hass, elec?.serial ?? null) ||
-      isTimeOfUse(this.hass, gas?.serial ?? null)
-    // Split the electricity rate into peak/off-peak when it's a time-of-use
-    // meter and today's windows resolve two distinct rates.
-    const elecRates = splitDayRates(readDayRates(this.hass, elec?.serial ?? null))
-    const elecSplit =
-      isTimeOfUse(this.hass, elec?.serial ?? null) &&
-      elecRates.peak != null &&
-      elecRates.offPeak != null
+    const elecTou = isTimeOfUse(this.hass, elec?.serial ?? null)
+    const tou = elecTou || isTimeOfUse(this.hass, gas?.serial ?? null)
+    // Rates themselves live on the fuel cards / charts; here we summarise *when*
+    // the cheaper and dearer windows fall, for time-of-use electricity only.
+    const windows = summariseRateWindows(readDayRates(this.hass, elec?.serial ?? null))
+    const showWindows = elecTou && (windows.offPeak.length > 0 || windows.peak.length > 0)
 
     return html`
       <button
@@ -369,41 +365,36 @@ class EonOverviewPage extends LitElement {
           </div>
           <span class="pill pill--dark">${tou ? 'Time-of-use' : 'Flat rate'}</span>
         </div>
-        <div class="tariff-stats">
-          ${
-            elecSplit
-              ? html`
-                  ${this._rateStat(formatRatePounds(elecRates.peak), 'var(--eon-elec)', 'Elec peak /kWh')}
-                  ${this._rateStat(formatRatePounds(elecRates.offPeak), 'var(--eon-green-light)', 'Elec off-peak /kWh')}
-                `
-              : this._rateStat(
-                  formatRatePounds(elec?.unit_rate),
-                  'var(--eon-elec)',
-                  'Electricity /kWh'
-                )
-          }
-          ${this._rateStat(formatRatePounds(gas?.unit_rate), 'var(--eon-gas)', 'Gas /kWh')}
-          <div class="tariff-note">
-            <div class="accent">
-              ${tou ? 'Off-peak window available' : 'No cheaper window today'}
-            </div>
-            <div class="tariff-stat-label">
-              ${tou ? 'shift usage to save' : 'same price around the clock'}
-            </div>
-          </div>
-        </div>
+        ${
+          showWindows
+            ? html`<div class="tariff-windows">
+                ${
+                  windows.offPeak.length
+                    ? this._windowRow(
+                        'Off-peak',
+                        windows.offPeak,
+                        'var(--eon-green-light)'
+                      )
+                    : nothing
+                }
+                ${
+                  windows.peak.length
+                    ? this._windowRow('Peak', windows.peak, 'var(--eon-elec)')
+                    : nothing
+                }
+              </div>`
+            : html`<div class="tariff-flat-hint">Same price around the clock.</div>`
+        }
       </button>
     `
   }
 
-  /** A tariff-card stat: big rate value over a blob + label. */
-  private _rateStat(value: string, color: string, label: string) {
+  /** One off-peak/peak row: a colour-coded label and its time range(s). */
+  private _windowRow(label: string, ranges: string[], color: string) {
     return html`
-      <div>
-        <div class="tariff-stat-value">${value}</div>
-        <div class="tariff-stat-label">
-          <span class="legend-swatch" style="background:${color}"></span>${label}
-        </div>
+      <div class="tariff-window">
+        <span class="tariff-window-label" style="color:${color}">${label}</span>
+        <span class="tariff-window-times">${ranges.join(', ')}</span>
       </div>
     `
   }

@@ -295,6 +295,45 @@ export function splitDayRates(rates: DayRate[]): {
   return { peak, offPeak }
 }
 
+/** Today's schedule summarised as off-peak and peak time ranges (local time). */
+export interface RateWindowsSummary {
+  offPeak: string[]
+  peak: string[]
+}
+
+/**
+ * Collapse today's rate windows into off-peak and peak time ranges, merging
+ * adjacent windows of the same kind. Times are local `HH:MM`; a window ending
+ * at midnight shows as `24:00`. Empty arrays when there are no rates.
+ */
+export function summariseRateWindows(rates: DayRate[]): RateWindowsSummary {
+  const merged: { offPeak: boolean; start: string; end: string }[] = []
+  for (const w of rates) {
+    const last = merged[merged.length - 1]
+    if (last && last.offPeak === w.isOffPeak) {
+      last.end = w.end
+    } else {
+      merged.push({ offPeak: w.isOffPeak, start: w.start, end: w.end })
+    }
+  }
+
+  const fmt = (iso: string, isEnd: boolean): string => {
+    const d = new Date(iso)
+    if (isNaN(d.getTime())) return ''
+    const h = d.getHours()
+    const m = d.getMinutes()
+    if (isEnd && h === 0 && m === 0) return '24:00'
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`
+  }
+
+  const out: RateWindowsSummary = { offPeak: [], peak: [] }
+  for (const w of merged) {
+    const range = `${fmt(w.start, false)}–${fmt(w.end, true)}`
+    ;(w.offPeak ? out.offPeak : out.peak).push(range)
+  }
+  return out
+}
+
 /** Whether a meter is on a time-of-use tariff (has an off-peak binary sensor). */
 export function isTimeOfUse(
   hass: HomeAssistant | undefined,
