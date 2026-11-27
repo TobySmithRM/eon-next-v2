@@ -4,6 +4,15 @@ All notable changes to this project will be documented in this file.
 
 This project is a fork of [monsagri/eon-next-v2](https://github.com/monsagri/eon-next-v2/) which it itself a fork of [madmachinations/eon-next-v2](https://github.com/madmachinations/eon-next-v2). Much appreciation to those who worked on all of this before us.
 
+## [2.6.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.5.0...v2.6.0) (2026-11-27)
+
+
+### Features
+
+* **dashboard:** split the 1-year chart into peak/off-peak per month ([#39](https://github.com/TobySmithRM/eon-next-v2/issues/39)) ([40bf125](https://github.com/TobySmithRM/eon-next-v2/commit/40bf1255dc243601129d17d31564c33625df6d69)), closes [#36](https://github.com/TobySmithRM/eon-next-v2/issues/36)
+* **overview:** show off-peak/peak hours on the tariff card, unify standing colour ([#40](https://github.com/TobySmithRM/eon-next-v2/issues/40)) ([07629cb](https://github.com/TobySmithRM/eon-next-v2/commit/07629cb68ae074808d204955df91780539d9fcb5))
+* **overview:** show peak/off-peak electricity rates on fuel + tariff cards ([#37](https://github.com/TobySmithRM/eon-next-v2/issues/37)) ([fa09ef7](https://github.com/TobySmithRM/eon-next-v2/commit/fa09ef7e57673b7ca89d4b36eb98cbdfb681814b)), closes [#35](https://github.com/TobySmithRM/eon-next-v2/issues/35)
+
 ## [2.5.0](https://github.com/TobySmithRM/eon-next-v2/compare/v2.4.0...v2.5.0) (2026-11-23)
 
 
