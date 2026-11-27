@@ -169,34 +169,35 @@
   margin-top: 6px;
 }
 
-.tariff-stats {
+.tariff-windows {
   display: flex;
-  gap: 34px;
-  margin-top: 20px;
-  flex-wrap: wrap;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 18px;
 }
 
-.tariff-stat-value {
-  font-size: 20px;
+.tariff-window {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.tariff-window-label {
+  font-size: 15px;
   font-weight: 700;
 }
 
-.tariff-stat-label {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 12px;
+.tariff-window-times {
+  font-size: 15px;
   color: var(--eon-on-dark-muted);
-  margin-top: 2px;
+  font-variant-numeric: tabular-nums;
 }
 
-.tariff-note {
-  border-left: 1px solid var(--eon-dark-pill);
-  padding-left: 20px;
-}
-
-.tariff-note .accent {
+.tariff-flat-hint {
+  margin-top: 16px;
   font-size: 13px;
+  color: var(--eon-on-dark-muted);
 }
 
 /* --- Health card --- */

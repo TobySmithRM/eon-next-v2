@@ -47,7 +47,10 @@
 
   /* Fuel + accents */
   --eon-elec: #c4623d;
-  --eon-elec-standing: #b79b6f;
+  /* Standing charge uses one shared colour across fuels (same as gas-standing)
+     so the fixed-charge floor reads identically on every chart; it stays
+     distinct from both the elec (terracotta) and gas (golden) usage colours. */
+  --eon-elec-standing: #d8c69a;
   --eon-elec-tile: #f6e3da;
   --eon-gas: #b8863f;
   --eon-gas-standing: #d8c69a;
